@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Laras tomater</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<section id="auth-view" hidden>
+  <h1>Laras tomater</h1>
+  <form id="auth-form">
+    <label>E-post<input type="email" id="email" required autocomplete="email" /></label>
+    <label>Lösenord<input type="password" id="password" required minlength="6" autocomplete="current-password" /></label>
+    <div class="row">
+      <button type="submit" data-action="login">Logga in</button>
+      <button type="button" data-action="signup">Skapa konto</button>
+    </div>
+    <p id="auth-msg" class="msg"></p>
+  </form>
+</section>
+
+<main id="app-view" hidden>
+  <header>
+    <h1>Laras tomater</h1>
+    <button id="logout">Logga ut</button>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="library">Bibliotek</button>
+    <button class="tab" data-tab="mine">Min lista</button>
+  </nav>
+
+  <section id="tab-library" class="tab-panel">
+    <div class="toolbar">
+      <input type="search" id="library-search" placeholder="Sök sort…" />
+      <button id="add-variety-btn">+ Ny sort</button>
+    </div>
+    <ul id="variety-list" class="cards"></ul>
+  </section>
+
+  <section id="tab-mine" class="tab-panel" hidden>
+    <ul id="mine-list" class="cards"></ul>
+    <p id="mine-empty" class="msg" hidden>Du har inga tomater i listan än. Lägg till från Bibliotek.</p>
+  </section>
+
+  <dialog id="variety-dialog">
+    <form method="dialog" id="variety-form">
+      <h2>Ny tomatsort</h2>
+      <label>Namn<input name="name" required /></label>
+      <label>Typ<input name="type" placeholder="bif, körsbär, plommon…" /></label>
+      <label>Färg<input name="color" /></label>
+      <label>Växtsätt
+        <select name="growth_habit">
+          <option value="">—</option>
+          <option>Buske</option>
+          <option>Stav</option>
+        </select>
+      </label>
+      <label>Mognadstid (dagar)<input name="maturity_days" type="number" min="0" /></label>
+      <label class="checkbox"><input name="needs_pruning" type="checkbox" /> Ska tjuvas</label>
+      <label>Höjd (cm)<input name="height_cm" type="number" min="0" /></label>
+      <label>Bra att veta<textarea name="notes" rows="3"></textarea></label>
+      <div class="row">
+        <button value="cancel">Avbryt</button>
+        <button value="save" id="variety-save">Spara</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="mine-dialog">
+    <form method="dialog" id="mine-form">
+      <h2>Lägg till i min lista</h2>
+      <p id="mine-variety-name"></p>
+      <input type="hidden" name="variety_id" />
+      <label>Planteringsdatum<input name="planted_date" type="date" /></label>
+      <label>Plats
+        <select name="location">
+          <option value="">—</option>
+          <option>Växthus</option>
+          <option>Uteland</option>
+          <option>Kruka</option>
+        </select>
+      </label>
+      <label>Antal plantor<input name="plant_count" type="number" min="1" value="1" /></label>
+      <label>Anteckningar<textarea name="notes" rows="3"></textarea></label>
+      <div class="row">
+        <button value="cancel">Avbryt</button>
+        <button value="save">Spara</button>
+      </div>
+    </form>
+  </dialog>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
