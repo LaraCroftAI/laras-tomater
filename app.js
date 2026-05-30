@@ -548,6 +548,15 @@ $("#harvest-form").addEventListener("submit", async (e) => {
 // ---------------- RECIPES ----------------
 function recipeCard(r) {
   const card = el("li", { className: "card" });
+
+  if (r.image_url) {
+    card.classList.add("recipe-card");
+    card.append(el("img", { className: "recipe-cover", src: r.image_url, alt: r.name, loading: "lazy" }));
+    card.append(el("h3", { className: "recipe-cover-title", textContent: r.name }));
+    card.addEventListener("click", () => openRecipeDialog(r));
+    return card;
+  }
+
   const head = el("div", { className: "card-head" });
   head.append(el("h3", { textContent: r.name }));
   card.append(head);

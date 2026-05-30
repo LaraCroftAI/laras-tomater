@@ -51,6 +51,7 @@ create table if not exists recipes (
   name text not null,
   body text,
   variety_ids uuid[] default '{}',  -- sorter som passar receptet
+  image_url text,                   -- ev. omslagsbild (sökväg i repot eller URL)
   created_at timestamptz default now()
 );
 
