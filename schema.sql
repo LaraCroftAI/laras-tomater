@@ -28,6 +28,7 @@ create table if not exists user_tomatoes (
   location text,                 -- Kruka, Växthus, Uteland, Ej placerad
   plant_count int,
   planted_date date,
+  pruned_on date,                -- senast beskuren (relevant för bärbuskar m.m.)
   notes text,
   created_at timestamptz default now()
 );

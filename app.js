@@ -285,9 +285,10 @@ function plantingCard(p) {
   tags.append(tag(`${p.plant_count} st`, "outline"));
   card.append(tags);
 
-  if (p.planted_date) {
+  if (p.planted_date || p.pruned_on) {
     const meta = el("div", { className: "meta-list" });
-    meta.append(metaRow("📅", new Date(p.planted_date).toLocaleDateString("sv-SE")));
+    if (p.planted_date) meta.append(metaRow("📅", "Planterad " + new Date(p.planted_date).toLocaleDateString("sv-SE")));
+    if (p.pruned_on) meta.append(metaRow("✂️", "Beskuren " + new Date(p.pruned_on).toLocaleDateString("sv-SE")));
     card.append(meta);
   }
   if (p.notes) card.append(el("p", { className: "msg", textContent: p.notes }));
@@ -313,6 +314,7 @@ function openPlantingDialog(p) {
     form.elements.location.value = p.location || "";
     form.elements.plant_count.value = p.plant_count ?? 1;
     form.elements.planted_date.value = p.planted_date || "";
+    form.elements.pruned_on.value = p.pruned_on || "";
     form.elements.notes.value = p.notes || "";
   } else {
     form.elements.id.value = "";
@@ -338,6 +340,7 @@ $("#planting-form").addEventListener("submit", async (e) => {
     location: fd.get("location"),
     plant_count: Number(fd.get("plant_count")) || 1,
     planted_date: fd.get("planted_date") || null,
+    pruned_on: fd.get("pruned_on") || null,
     notes: fd.get("notes") || null,
     season: SEASON,
   };
