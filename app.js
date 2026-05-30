@@ -191,8 +191,8 @@ function varietyCard(v) {
     card.append(ut);
   }
 
-  if (v.category === "Bär" && v.notes) {
-    card.append(el("p", { className: "card-notes", textContent: v.notes }));
+  if (v.pruning_notes) {
+    card.append(el("p", { className: "card-notes", textContent: v.pruning_notes }));
   }
 
   card.addEventListener("click", () => openVarietyDialog(v));
@@ -233,6 +233,7 @@ function openVarietyDialog(v) {
     form.elements.pruning.value = v.pruning || "";
     form.elements.default_location.value = v.default_location || "";
     form.elements.use_tags.value = (v.use_tags || []).join(", ");
+    form.elements.pruning_notes.value = v.pruning_notes || "";
     form.elements.notes.value = v.notes || "";
   } else {
     form.elements.id.value = "";
@@ -263,6 +264,7 @@ $("#variety-form").addEventListener("submit", async (e) => {
     pruning: fd.get("pruning") || null,
     default_location: fd.get("default_location") || null,
     use_tags: useTags,
+    pruning_notes: fd.get("pruning_notes") || null,
     notes: fd.get("notes") || null,
   };
   let error;

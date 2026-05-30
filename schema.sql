@@ -14,6 +14,7 @@ create table if not exists tomato_varieties (
   pruning text,                  -- Tjuvas ej / regelbundet / vid högväxt ...
   default_location text,         -- standardplacering, t.ex. Kruka / Växthus
   use_tags text[] default '{}',  -- användning: Sallad, Söt, Sås ...
+  pruning_notes text,            -- fritext om beskärning (t.ex. bärbuskar)
   notes text,
   created_by uuid references auth.users(id),
   created_at timestamptz default now()
