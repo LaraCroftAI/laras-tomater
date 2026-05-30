@@ -191,8 +191,8 @@ function varietyCard(v) {
     card.append(ut);
   }
 
-  if (v.pruning_notes) {
-    card.append(el("p", { className: "card-notes", textContent: v.pruning_notes }));
+  if (v.category === "Bär" && v.notes) {
+    card.append(el("p", { className: "card-notes", textContent: v.notes }));
   }
 
   card.addEventListener("click", () => openVarietyDialog(v));
