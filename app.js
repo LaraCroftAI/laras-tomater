@@ -283,6 +283,10 @@ function plantingCard(p) {
   const tags = el("div", { className: "tags" });
   tags.append(tag(p.location, "green"));
   tags.append(tag(`${p.plant_count} st`, "outline"));
+  if (v?.category === "Bär") {
+    const prunedThisYear = p.pruned_on && new Date(p.pruned_on).getFullYear() === new Date().getFullYear();
+    tags.append(tag(prunedThisYear ? "✂️ Beskuren i år" : "✂️ Behöver beskäras i år", prunedThisYear ? "green" : "warn"));
+  }
   card.append(tags);
 
   if (p.planted_date || p.pruned_on) {
