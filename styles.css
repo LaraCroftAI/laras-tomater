@@ -258,6 +258,9 @@ input:focus, select:focus, textarea:focus {
   font-size: 1.05rem;
   flex: 1;
 }
+.tomato-icon {
+  margin-right: 0.4rem;
+}
 
 /* TAGS */
 .tags {
