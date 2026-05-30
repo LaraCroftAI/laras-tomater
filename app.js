@@ -360,11 +360,20 @@ function placedLocations() {
 }
 function feedingCard(location) {
   const card = el("li", { className: "card static" });
+  const list = feedings.filter((f) => f.location === location);
+
   const head = el("div", { className: "card-head" });
   head.append(el("h3", {}, el("span", { className: "tomato-icon", textContent: "💧" }), location));
   card.append(head);
 
-  const list = feedings.filter((f) => f.location === location);
+  const latest = list[0];
+  card.append(el("p", {
+    className: "feeding-latest",
+    textContent: latest
+      ? `Senast gödslat: ${new Date(latest.fed_on).toLocaleDateString("sv-SE")}`
+      : "Senast gödslat: aldrig",
+  }));
+
   if (list.length) {
     const tags = el("div", { className: "tags" });
     for (const f of list) {
@@ -375,8 +384,6 @@ function feedingCard(location) {
       tags.append(t);
     }
     card.append(tags);
-  } else {
-    card.append(el("p", { className: "msg", textContent: "Ingen näring registrerad än." }));
   }
 
   const add = el("button", { type: "button", className: "primary add-date", textContent: "+ Datum" });
