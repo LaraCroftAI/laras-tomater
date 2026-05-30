@@ -107,6 +107,7 @@ async function loadFeedings() {
 function renderAll() {
   renderStats();
   renderLibrary();
+  populatePlantingLocationFilter();
   renderPlantings();
   renderFeedings();
   renderHarvests();
@@ -307,16 +308,25 @@ function plantingCard(p) {
   card.addEventListener("click", () => openPlantingDialog(p));
   return card;
 }
+function populatePlantingLocationFilter() {
+  const sel = $("#planting-location-filter");
+  const prev = sel.value;
+  const locs = [...new Set(plantings.map((p) => p.location).filter(Boolean))].sort((a, b) => a.localeCompare(b, "sv"));
+  sel.replaceChildren(el("option", { value: "", textContent: "Alla platser" }));
+  for (const l of locs) sel.append(el("option", { value: l, textContent: l }));
+  sel.value = locs.includes(prev) ? prev : "";
+}
 function renderPlantings() {
   const list = $("#planting-list");
   list.replaceChildren();
   const f = $("#planting-search").value.trim().toLowerCase();
-  const filtered = f
-    ? plantings.filter((p) => {
-        const v = varieties.find((x) => x.id === p.variety_id);
-        return `${v?.name || ""} ${p.location || ""} ${p.notes || ""}`.toLowerCase().includes(f);
-      })
-    : plantings;
+  const loc = $("#planting-location-filter").value;
+  const filtered = plantings.filter((p) => {
+    if (loc && p.location !== loc) return false;
+    if (!f) return true;
+    const v = varieties.find((x) => x.id === p.variety_id);
+    return `${v?.name || ""} ${p.location || ""} ${p.notes || ""}`.toLowerCase().includes(f);
+  });
   const empty = $("#planting-empty");
   empty.hidden = filtered.length > 0;
   empty.textContent = plantings.length === 0
@@ -325,6 +335,7 @@ function renderPlantings() {
   for (const p of filtered) list.append(plantingCard(p));
 }
 $("#planting-search").addEventListener("input", renderPlantings);
+$("#planting-location-filter").addEventListener("change", renderPlantings);
 $("#add-planting-btn").addEventListener("click", () => openPlantingDialog(null));
 function openPlantingDialog(p) {
   const form = $("#planting-form");

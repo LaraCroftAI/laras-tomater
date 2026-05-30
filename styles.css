@@ -224,6 +224,7 @@ input:focus, select:focus, textarea:focus {
 .section-head input[type="search"] {
   max-width: 240px;
 }
+.section-head select { max-width: 200px; width: auto; }
 
 /* CARDS GRID */
 .cards {
