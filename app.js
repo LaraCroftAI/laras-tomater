@@ -310,9 +310,21 @@ function plantingCard(p) {
 function renderPlantings() {
   const list = $("#planting-list");
   list.replaceChildren();
-  $("#planting-empty").hidden = plantings.length > 0;
-  for (const p of plantings) list.append(plantingCard(p));
+  const f = $("#planting-search").value.trim().toLowerCase();
+  const filtered = f
+    ? plantings.filter((p) => {
+        const v = varieties.find((x) => x.id === p.variety_id);
+        return `${v?.name || ""} ${p.location || ""} ${p.notes || ""}`.toLowerCase().includes(f);
+      })
+    : plantings;
+  const empty = $("#planting-empty");
+  empty.hidden = filtered.length > 0;
+  empty.textContent = plantings.length === 0
+    ? "Inga plantor inlagda än. Lägg till från en sort eller via knappen ovan."
+    : "Inga plantor matchar filtret.";
+  for (const p of filtered) list.append(plantingCard(p));
 }
+$("#planting-search").addEventListener("input", renderPlantings);
 $("#add-planting-btn").addEventListener("click", () => openPlantingDialog(null));
 function openPlantingDialog(p) {
   const form = $("#planting-form");
