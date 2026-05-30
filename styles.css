@@ -220,6 +220,7 @@ input:focus, select:focus, textarea:focus {
   font-size: 1.1rem;
   font-weight: 600;
 }
+.section-head.spaced { margin-top: 1.75rem; }
 .section-head input[type="search"] {
   max-width: 240px;
 }
@@ -247,6 +248,12 @@ input:focus, select:focus, textarea:focus {
 .card:hover {
   border-color: var(--line-strong);
   box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.card.static { cursor: default; }
+.add-date {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.8rem;
 }
 .card-head {
   display: flex;
@@ -279,6 +286,8 @@ input:focus, select:focus, textarea:focus {
 .tag.green { background: var(--green); color: var(--green-ink); }
 .tag.outline { border-color: var(--line-strong); color: var(--ink-soft); background: transparent; }
 .tag.beige { background: var(--beige); color: var(--beige-ink); }
+.tag.clickable { cursor: pointer; }
+.tag.clickable:hover { filter: brightness(0.95); }
 
 /* CARD META */
 .meta-list {

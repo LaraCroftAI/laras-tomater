@@ -19,6 +19,7 @@ let varieties = [];
 let plantings = [];
 let harvests = [];
 let recipes = [];
+let feedings = [];
 
 const authView = $("#auth-view");
 const appView = $("#app-view");
@@ -65,7 +66,7 @@ $$(".tab").forEach((btn) => {
 
 // ---------------- LOAD ----------------
 async function loadAll() {
-  await Promise.all([loadVarieties(), loadPlantings(), loadHarvests(), loadRecipes()]);
+  await Promise.all([loadVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings()]);
   renderAll();
 }
 async function loadVarieties() {
@@ -92,11 +93,21 @@ async function loadRecipes() {
   if (error) return console.error(error);
   recipes = data;
 }
+async function loadFeedings() {
+  const { data, error } = await sb
+    .from("feedings")
+    .select("*")
+    .eq("season", SEASON)
+    .order("fed_on", { ascending: false });
+  if (error) return console.error(error);
+  feedings = data;
+}
 
 function renderAll() {
   renderStats();
   renderLibrary();
   renderPlantings();
+  renderFeedings();
   renderHarvests();
   renderRecipes();
   populateVarietySelects();
@@ -339,6 +350,91 @@ $("#planting-form").addEventListener("submit", async (e) => {
   }
   if (error) return alert(error.message);
   $("#planting-dialog").close();
+  await loadAll();
+});
+
+// ---------------- FEEDING (Tomatnäring per plats) ----------------
+function placedLocations() {
+  const set = new Set(plantings.map((p) => p.location).filter((l) => l && l !== "Ej placerad"));
+  return [...set].sort((a, b) => a.localeCompare(b, "sv"));
+}
+function feedingCard(location) {
+  const card = el("li", { className: "card static" });
+  const head = el("div", { className: "card-head" });
+  head.append(el("h3", {}, el("span", { className: "tomato-icon", textContent: "💧" }), location));
+  card.append(head);
+
+  const list = feedings.filter((f) => f.location === location);
+  if (list.length) {
+    const tags = el("div", { className: "tags" });
+    for (const f of list) {
+      const label = new Date(f.fed_on).toLocaleDateString("sv-SE") + (f.notes ? ` · ${f.notes}` : "");
+      const t = tag(label, "green");
+      t.classList.add("clickable");
+      t.addEventListener("click", () => openFeedingDialog(location, f));
+      tags.append(t);
+    }
+    card.append(tags);
+  } else {
+    card.append(el("p", { className: "msg", textContent: "Ingen näring registrerad än." }));
+  }
+
+  const add = el("button", { type: "button", className: "primary add-date", textContent: "+ Datum" });
+  add.addEventListener("click", () => openFeedingDialog(location, null));
+  card.append(add);
+  return card;
+}
+function renderFeedings() {
+  const list = $("#feeding-list");
+  list.replaceChildren();
+  const locs = placedLocations();
+  $("#feeding-empty").hidden = locs.length > 0;
+  for (const loc of locs) list.append(feedingCard(loc));
+}
+function openFeedingDialog(location, f) {
+  const form = $("#feeding-form");
+  form.reset();
+  $("#feeding-dialog-title").textContent = (f ? "Redigera näring · " : "Ny näring · ") + location;
+  $("#feeding-delete").hidden = !f;
+  form.elements.location.value = location;
+  form.elements.fed_on.value = f?.fed_on || new Date().toISOString().slice(0, 10);
+  if (f) {
+    form.elements.id.value = f.id;
+    form.elements.notes.value = f.notes || "";
+  } else {
+    form.elements.id.value = "";
+  }
+  $("#feeding-dialog").showModal();
+}
+$("#feeding-form").addEventListener("submit", async (e) => {
+  const action = e.submitter?.value;
+  if (action === "cancel") return;
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const id = fd.get("id");
+  if (action === "delete") {
+    if (!confirm("Ta bort detta datum?")) return;
+    const { error } = await sb.from("feedings").delete().eq("id", id);
+    if (error) return alert(error.message);
+    $("#feeding-dialog").close();
+    await loadAll();
+    return;
+  }
+  const row = {
+    location: fd.get("location"),
+    fed_on: fd.get("fed_on"),
+    notes: fd.get("notes") || null,
+    season: SEASON,
+  };
+  let error;
+  if (id) {
+    ({ error } = await sb.from("feedings").update(row).eq("id", id));
+  } else {
+    row.user_id = currentUser.id;
+    ({ error } = await sb.from("feedings").insert(row));
+  }
+  if (error) return alert(error.message);
+  $("#feeding-dialog").close();
   await loadAll();
 });
 

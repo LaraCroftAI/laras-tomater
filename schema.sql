@@ -53,11 +53,23 @@ create table if not exists recipes (
   created_at timestamptz default now()
 );
 
+-- ---------- TOMATNÄRING (logg per plats, privat per användare) ----------
+create table if not exists feedings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  season text not null default '2026',
+  location text not null,          -- plats: Kruka, Växthus, Uteland ...
+  fed_on date not null,            -- datum då näring gavs
+  notes text,
+  created_at timestamptz default now()
+);
+
 -- ---------- RLS ----------
 alter table tomato_varieties enable row level security;
 alter table user_tomatoes enable row level security;
 alter table harvests enable row level security;
 alter table recipes enable row level security;
+alter table feedings enable row level security;
 
 -- Sorter: alla inloggade läser; skaparen ändrar/tar bort.
 create policy "Auth can read varieties"
@@ -98,3 +110,13 @@ create policy "Users update own recipes"
   on recipes for update to authenticated using (auth.uid() = user_id);
 create policy "Users delete own recipes"
   on recipes for delete to authenticated using (auth.uid() = user_id);
+
+-- Tomatnäring: helt privat per användare.
+create policy "Users see own feedings"
+  on feedings for select to authenticated using (auth.uid() = user_id);
+create policy "Users insert own feedings"
+  on feedings for insert to authenticated with check (auth.uid() = user_id);
+create policy "Users update own feedings"
+  on feedings for update to authenticated using (auth.uid() = user_id);
+create policy "Users delete own feedings"
+  on feedings for delete to authenticated using (auth.uid() = user_id);

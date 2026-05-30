@@ -69,6 +69,12 @@
     </div>
     <ul id="planting-list" class="cards"></ul>
     <p id="planting-empty" class="msg" hidden>Inga plantor inlagda än. Lägg till från en sort eller via knappen ovan.</p>
+
+    <div class="section-head spaced">
+      <h2>Tomatnäring per plats</h2>
+    </div>
+    <ul id="feeding-list" class="cards"></ul>
+    <p id="feeding-empty" class="msg" hidden>Här dyker dina platser upp när du har plantor placerade (allt utom "Ej placerad").</p>
   </section>
 
   <section id="tab-skord" class="tab-panel" hidden>
@@ -174,6 +180,21 @@
       <div class="row end">
         <button value="cancel" class="ghost">Avbryt</button>
         <button value="delete" class="danger" id="planting-delete" hidden>Ta bort</button>
+        <button value="save" class="primary">Spara</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="feeding-dialog">
+    <form method="dialog" id="feeding-form">
+      <h2 id="feeding-dialog-title">Tomatnäring</h2>
+      <input type="hidden" name="id" />
+      <input type="hidden" name="location" />
+      <label>Datum<input name="fed_on" type="date" required /></label>
+      <label>Anteckning (t.ex. typ av näring)<input name="notes" /></label>
+      <div class="row end">
+        <button value="cancel" class="ghost">Avbryt</button>
+        <button value="delete" class="danger" id="feeding-delete" hidden>Ta bort</button>
         <button value="save" class="primary">Spara</button>
       </div>
     </form>
