@@ -367,8 +367,10 @@ function feedingCard(location) {
   card.append(head);
 
   const latest = list[0];
+  const daysSince = latest ? Math.floor((Date.now() - new Date(latest.fed_on)) / 86400000) : null;
+  const overdue = daysSince === null || daysSince > 14;
   card.append(el("p", {
-    className: "feeding-latest",
+    className: `feeding-latest${overdue ? " overdue" : ""}`,
     textContent: latest
       ? `Senast gödslat: ${new Date(latest.fed_on).toLocaleDateString("sv-SE")}`
       : "Senast gödslat: aldrig",
