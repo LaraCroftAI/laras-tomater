@@ -353,7 +353,7 @@ $("#planting-form").addEventListener("submit", async (e) => {
   await loadAll();
 });
 
-// ---------------- FEEDING (Tomatnäring per plats) ----------------
+// ---------------- FEEDING (Växtnäring per plats) ----------------
 function placedLocations() {
   const set = new Set(plantings.map((p) => p.location).filter((l) => l && l !== "Ej placerad"));
   return [...set].sort((a, b) => a.localeCompare(b, "sv"));
