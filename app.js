@@ -130,6 +130,13 @@ const CATEGORY_PINK = new Set(["Bifftomat", "Körsbär", "Cocktail", "Plommon", 
 function tag(label, kind = "outline") {
   return el("span", { className: `tag ${kind}`, textContent: label });
 }
+function varietyIcon(v) {
+  const n = (v.name || "").toLowerCase();
+  if (v.category === "Chili") return "🌶️";
+  if (n.includes("blåbär")) return "🫐";
+  if (n.includes("vinbär")) return "🍇";
+  return "🍅";
+}
 function heightText(v) {
   if (v.height_min_cm && v.height_max_cm) return `${v.height_min_cm}-${v.height_max_cm} cm`;
   if (v.height_min_cm) return `${v.height_min_cm} cm`;
@@ -149,8 +156,7 @@ function plantingSummary(v) {
 function varietyCard(v) {
   const card = el("li", { className: "card" });
   const head = el("div", { className: "card-head" });
-  const icon = v.category === "Chili" ? "🌶️" : "🍅";
-  head.append(el("h3", {}, el("span", { className: "tomato-icon", textContent: icon }), v.name));
+  head.append(el("h3", {}, el("span", { className: "tomato-icon", textContent: varietyIcon(v) }), v.name));
   card.append(head);
 
   const tags = el("div", { className: "tags" });
