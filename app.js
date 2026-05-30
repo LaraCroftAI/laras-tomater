@@ -149,7 +149,8 @@ function plantingSummary(v) {
 function varietyCard(v) {
   const card = el("li", { className: "card" });
   const head = el("div", { className: "card-head" });
-  head.append(el("h3", {}, el("span", { className: "tomato-icon", textContent: "🍅" }), v.name));
+  const icon = v.category === "Chili" ? "🌶️" : "🍅";
+  head.append(el("h3", {}, el("span", { className: "tomato-icon", textContent: icon }), v.name));
   card.append(head);
 
   const tags = el("div", { className: "tags" });
