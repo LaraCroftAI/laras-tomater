@@ -259,6 +259,14 @@ input:focus, select:focus, textarea:focus {
   display: block;
 }
 .recipe-cover-title { font-size: 1.1rem; margin: 0; }
+.recipe-dialog-image {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  display: block;
+}
 .feeding-latest {
   margin: 0;
   font-weight: 600;

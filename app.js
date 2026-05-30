@@ -613,6 +613,15 @@ function openRecipeDialog(r) {
   form.reset();
   $("#recipe-delete").hidden = !r;
   $("#recipe-print").hidden = !r;
+  const dlgImg = $("#recipe-dialog-image");
+  if (r?.image_url) {
+    dlgImg.src = r.image_url;
+    dlgImg.alt = r.name || "";
+    dlgImg.hidden = false;
+  } else {
+    dlgImg.hidden = true;
+    dlgImg.removeAttribute("src");
+  }
   if (r) {
     form.elements.id.value = r.id;
     form.elements.name.value = r.name || "";
