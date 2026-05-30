@@ -399,6 +399,8 @@ dialog .row {
   gap: 0.5rem;
 }
 dialog .row.end { justify-content: flex-end; margin-top: 1rem; }
+/* Ta bort-knappen (danger) hamnar längst till vänster, avskild från Spara */
+dialog .row.end .danger { order: -1; margin-right: auto; }
 dialog .row.gap > * { flex: 1; }
 .field { margin-bottom: 0.75rem; }
 .field-label {
