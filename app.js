@@ -451,11 +451,37 @@ function renderRecipes() {
   $("#recipe-empty").hidden = recipes.length > 0;
   for (const r of recipes) list.append(recipeCard(r));
 }
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+$("#recipe-print").addEventListener("click", () => {
+  const form = $("#recipe-form");
+  const name = form.elements.name.value || "Recept";
+  const body = form.elements.body.value || "";
+  const sorter = Array.from($("#recipe-variety-select").selectedOptions).map((o) => o.textContent);
+  const w = window.open("", "_blank", "width=720,height=900");
+  if (!w) { alert("Tillåt popup-fönster för att kunna skriva ut."); return; }
+  w.document.write(`<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title>
+<style>
+  body { font-family: Georgia, "Times New Roman", serif; color: #2a2a2a; max-width: 17cm; margin: 2cm auto; padding: 0 1cm; line-height: 1.5; }
+  h1 { font-size: 1.8rem; margin: 0 0 .2rem; }
+  .sorter { color: #6b6b6b; font-style: italic; margin: 0 0 1rem; }
+  .body { white-space: pre-wrap; font-size: 1.05rem; }
+  @media print { body { margin: 1.2cm; } }
+</style></head><body onload="window.print()">
+  <h1>🍅 ${escapeHtml(name)}</h1>
+  ${sorter.length ? `<p class="sorter">Passar bra med: ${escapeHtml(sorter.join(", "))}</p>` : ""}
+  <div class="body">${escapeHtml(body)}</div>
+</body></html>`);
+  w.document.close();
+  w.focus();
+});
 $("#add-recipe-btn").addEventListener("click", () => openRecipeDialog(null));
 function openRecipeDialog(r) {
   const form = $("#recipe-form");
   form.reset();
   $("#recipe-delete").hidden = !r;
+  $("#recipe-print").hidden = !r;
   if (r) {
     form.elements.id.value = r.id;
     form.elements.name.value = r.name || "";
