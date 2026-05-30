@@ -313,6 +313,18 @@ input:focus, select:focus, textarea:focus {
 .tag.warn { background: #F6E2C0; color: #8A5A12; }
 .tag.clickable { cursor: pointer; }
 .tag.clickable:hover { filter: brightness(0.95); }
+.chip-x {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-left: 0.1rem;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  border-radius: 0;
+}
+.chip-x:hover { background: transparent; color: var(--danger); }
 
 /* CARD META */
 .meta-list {
@@ -388,6 +400,14 @@ dialog .row {
 }
 dialog .row.end { justify-content: flex-end; margin-top: 1rem; }
 dialog .row.gap > * { flex: 1; }
+.field { margin-bottom: 0.75rem; }
+.field-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.4rem;
+}
+#recipe-variety-chips { margin-bottom: 0.5rem; }
 
 /* HARVEST SUMMARY */
 .harvest-summary {

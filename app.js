@@ -20,6 +20,7 @@ let plantings = [];
 let harvests = [];
 let recipes = [];
 let feedings = [];
+let recipeVarietyIds = [];
 
 const authView = $("#auth-view");
 const appView = $("#app-view");
@@ -589,7 +590,7 @@ $("#recipe-print").addEventListener("click", () => {
   const form = $("#recipe-form");
   const name = form.elements.name.value || "Recept";
   const body = form.elements.body.value || "";
-  const sorter = Array.from($("#recipe-variety-select").selectedOptions).map((o) => o.textContent);
+  const sorter = recipeVarietyIds.map((id) => varieties.find((v) => v.id === id)?.name).filter(Boolean);
   const w = window.open("", "_blank", "width=720,height=900");
   if (!w) { alert("Tillåt popup-fönster för att kunna skriva ut."); return; }
   w.document.write(`<!doctype html><html lang="sv"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title>
@@ -608,6 +609,39 @@ $("#recipe-print").addEventListener("click", () => {
   w.focus();
 });
 $("#add-recipe-btn").addEventListener("click", () => openRecipeDialog(null));
+function renderRecipeVarieties() {
+  const chips = $("#recipe-variety-chips");
+  chips.replaceChildren();
+  if (!recipeVarietyIds.length) {
+    chips.append(el("span", { className: "msg", textContent: "Inga sorter valda än." }));
+  }
+  for (const id of recipeVarietyIds) {
+    const v = varieties.find((x) => x.id === id);
+    if (!v) continue;
+    const chip = el("span", { className: "tag beige" });
+    chip.append(v.name + " ");
+    const x = el("button", { type: "button", className: "chip-x", textContent: "✕", title: "Ta bort" });
+    x.addEventListener("click", () => {
+      recipeVarietyIds = recipeVarietyIds.filter((i) => i !== id);
+      renderRecipeVarieties();
+    });
+    chip.append(x);
+    chips.append(chip);
+  }
+  const add = $("#recipe-variety-add");
+  add.replaceChildren(el("option", { value: "", textContent: "+ Lägg till sort…" }));
+  for (const v of varieties) {
+    if (!recipeVarietyIds.includes(v.id)) add.append(el("option", { value: v.id, textContent: v.name }));
+  }
+}
+$("#recipe-variety-add").addEventListener("change", (e) => {
+  const id = e.target.value;
+  if (id && !recipeVarietyIds.includes(id)) {
+    recipeVarietyIds.push(id);
+    renderRecipeVarieties();
+  }
+  e.target.value = "";
+});
 function openRecipeDialog(r) {
   const form = $("#recipe-form");
   form.reset();
@@ -622,12 +656,12 @@ function openRecipeDialog(r) {
     dlgImg.hidden = true;
     dlgImg.removeAttribute("src");
   }
+  recipeVarietyIds = r?.variety_ids ? [...r.variety_ids] : [];
+  renderRecipeVarieties();
   if (r) {
     form.elements.id.value = r.id;
     form.elements.name.value = r.name || "";
     form.elements.body.value = r.body || "";
-    const sel = $("#recipe-variety-select");
-    Array.from(sel.options).forEach((opt) => { opt.selected = r.variety_ids?.includes(opt.value); });
   } else {
     form.elements.id.value = "";
   }
@@ -647,11 +681,10 @@ $("#recipe-form").addEventListener("submit", async (e) => {
     await loadAll();
     return;
   }
-  const selected = Array.from($("#recipe-variety-select").selectedOptions).map((o) => o.value);
   const row = {
     name: fd.get("name"),
     body: fd.get("body") || null,
-    variety_ids: selected,
+    variety_ids: recipeVarietyIds,
   };
   let error;
   if (id) {
@@ -667,11 +700,10 @@ $("#recipe-form").addEventListener("submit", async (e) => {
 
 // ---------------- SELECTS ----------------
 function populateVarietySelects() {
-  for (const id of ["#planting-variety-select", "#harvest-variety-select", "#recipe-variety-select"]) {
+  for (const id of ["#planting-variety-select", "#harvest-variety-select"]) {
     const sel = $(id);
     sel.replaceChildren();
-    if (id === "#harvest-variety-select") sel.append(el("option", { value: "", textContent: "—" }));
-    if (id === "#planting-variety-select") sel.append(el("option", { value: "", textContent: "—" }));
+    sel.append(el("option", { value: "", textContent: "—" }));
     for (const v of varieties) sel.append(el("option", { value: v.id, textContent: v.name }));
   }
 }

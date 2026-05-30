@@ -225,9 +225,11 @@
       <h2>Recept</h2>
       <input type="hidden" name="id" />
       <label>Namn<input name="name" required /></label>
-      <label>Sorter som passar
-        <select name="variety_ids" id="recipe-variety-select" multiple size="4"></select>
-      </label>
+      <div class="field">
+        <span class="field-label">Sorter som passar</span>
+        <div id="recipe-variety-chips" class="tags"></div>
+        <select id="recipe-variety-add"></select>
+      </div>
       <label>Recept / instruktioner<textarea name="body" rows="8"></textarea></label>
       <div class="row end">
         <button value="cancel" class="ghost">Avbryt</button>
