@@ -28,7 +28,19 @@ const authForm = $("#auth-form");
 const authMsg = $("#auth-msg");
 
 function showAuth() { authView.hidden = false; appView.hidden = true; }
-async function showApp() { authView.hidden = true; appView.hidden = false; await loadAll(); }
+async function showApp() {
+  const { data: allowed } = await sb.rpc("is_allowed");
+  if (!allowed) {
+    await sb.auth.signOut();
+    showAuth();
+    authMsg.textContent = "Det här kontot har inte behörighet till appen ännu. Kontakta administratören.";
+    authMsg.classList.add("error");
+    return;
+  }
+  authView.hidden = true;
+  appView.hidden = false;
+  await loadAll();
+}
 
 authForm.addEventListener("submit", (e) => e.preventDefault());
 authForm.querySelector('[data-action="login"]').addEventListener("click", async () => {
