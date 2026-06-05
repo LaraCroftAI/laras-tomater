@@ -50,6 +50,25 @@ authForm.querySelector('[data-action="signup"]').addEventListener("click", async
 });
 $("#logout").addEventListener("click", async () => { await sb.auth.signOut(); });
 
+$("#export-btn").addEventListener("click", () => {
+  const data = {
+    app: "Evas odling",
+    exported_at: new Date().toISOString(),
+    varieties,
+    plantings,
+    harvests,
+    recipes,
+    feedings,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = el("a", { href: url, download: `evas-odling-${new Date().toISOString().slice(0, 10)}.json` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
 sb.auth.onAuthStateChange((_event, session) => {
   currentUser = session?.user ?? null;
   if (session) showApp();

@@ -1,0 +1,25 @@
+name: Keep Supabase alive
+
+# Gratis Supabase-projekt pausas efter ~7 dagars inaktivitet, vilket bryter
+# inloggning och datahämtning. Den här jobbet pingar projektet dagligen så att
+# det räknas som aktivt. Nyckeln nedan är den publika (publishable) anon-nyckeln
+# som ändå ligger öppet i app.js – ingen hemlighet.
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # varje dag 06:17 UTC
+  workflow_dispatch: {} # går även att köra manuellt
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "https://rciaqovopajrkdtuhkdo.supabase.co/rest/v1/tomato_varieties?select=id&limit=1" \
+            -H "apikey: sb_publishable_F1wn2SYtPbldAoCV2j9f9w_-2ZqSf8C" \
+            -H "Authorization: Bearer sb_publishable_F1wn2SYtPbldAoCV2j9f9w_-2ZqSf8C")
+          echo "HTTP $code"
+          # 2xx eller 4xx innebär att projektet svarade (= aktivt). Endast nät-/serverfel räknas som fel.
+          if [ "$code" -ge 500 ] || [ "$code" -eq 000 ]; then exit 1; fi
