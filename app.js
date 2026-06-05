@@ -131,10 +131,12 @@ function renderStats() {
   const total = plantings.reduce((s, p) => s + (p.plant_count || 0), 0);
   const pot = plantings.filter((p) => p.location === "Kruka").reduce((s, p) => s + (p.plant_count || 0), 0);
   const gh = plantings.filter((p) => p.location === "Växthus").reduce((s, p) => s + (p.plant_count || 0), 0);
+  const box = plantings.filter((p) => p.location === "Planteringslåda").reduce((s, p) => s + (p.plant_count || 0), 0);
   const rem = plantings.filter((p) => p.location === "Ej placerad").reduce((s, p) => s + (p.plant_count || 0), 0);
   $("#stat-total").textContent = total;
   $("#stat-pot").textContent = pot;
   $("#stat-greenhouse").textContent = gh;
+  $("#stat-box").textContent = box;
   $("#stat-remaining").textContent = rem;
 }
 
