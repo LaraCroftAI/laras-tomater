@@ -183,6 +183,15 @@
       <label>Planteringsdatum<input name="planted_date" type="date" /></label>
       <label>Senast beskuren<input name="pruned_on" type="date" /></label>
       <label>Anteckningar<textarea name="notes" rows="2"></textarea></label>
+      <div class="field">
+        <span class="field-label">Foton</span>
+        <div id="planting-photo-grid" class="photo-grid"></div>
+        <label id="planting-photo-add-label" class="photo-add" hidden>
+          <span id="planting-photo-add-text">📷 Lägg till foto</span>
+          <input type="file" id="planting-photo-input" accept="image/*" hidden />
+        </label>
+        <p id="planting-photo-hint" class="msg" hidden></p>
+      </div>
       <div class="row end">
         <button value="cancel" class="ghost">Avbryt</button>
         <button value="delete" class="danger" id="planting-delete" hidden>Ta bort</button>

@@ -20,6 +20,7 @@ let plantings = [];
 let harvests = [];
 let recipes = [];
 let feedings = [];
+let plantPhotos = [];
 let recipeVarietyIds = [];
 
 const authView = $("#auth-view");
@@ -71,6 +72,7 @@ $("#export-btn").addEventListener("click", () => {
     harvests,
     recipes,
     feedings,
+    plant_photos: plantPhotos.map(({ signedUrl, ...r }) => r),
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -98,7 +100,7 @@ $$(".tab").forEach((btn) => {
 
 // ---------------- LOAD ----------------
 async function loadAll() {
-  await Promise.all([loadVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings()]);
+  await Promise.all([loadVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings(), loadPlantPhotos()]);
   renderAll();
 }
 async function loadVarieties() {
@@ -133,6 +135,59 @@ async function loadFeedings() {
     .order("fed_on", { ascending: false });
   if (error) return console.error(error);
   feedings = data;
+}
+async function loadPlantPhotos() {
+  const { data, error } = await sb
+    .from("plant_photos")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return console.error(error);
+  plantPhotos = data;
+  const paths = plantPhotos.map((p) => p.path);
+  if (!paths.length) return;
+  // Privat bucket → signerade URL:er för visning (giltiga 8 h).
+  const { data: signed, error: sErr } = await sb.storage.from("plant-photos").createSignedUrls(paths, 28800);
+  if (sErr) return console.error(sErr);
+  const map = new Map((signed || []).map((s) => [s.path, s.signedUrl]));
+  for (const p of plantPhotos) p.signedUrl = map.get(p.path);
+}
+function photosFor(tomatoId) {
+  return plantPhotos.filter((p) => p.tomato_id === tomatoId);
+}
+
+// ---------------- PLANT PHOTOS ----------------
+// Komprimerar en bild i webbläsaren till JPEG innan uppladdning (håller gratis-tierns lagring nere).
+async function compressImage(file, maxDim = 1280, quality = 0.82) {
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+  return await new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Kunde inte läsa bilden"))), "image/jpeg", quality)
+  );
+}
+async function uploadPlantPhoto(tomatoId, file) {
+  const blob = await compressImage(file);
+  const path = `${currentUser.id}/${tomatoId}/${crypto.randomUUID()}.jpg`;
+  const { error: upErr } = await sb.storage.from("plant-photos").upload(path, blob, { contentType: "image/jpeg" });
+  if (upErr) throw upErr;
+  const { error: insErr } = await sb.from("plant_photos").insert({
+    user_id: currentUser.id,
+    tomato_id: tomatoId,
+    path,
+  });
+  if (insErr) throw insErr;
+}
+async function deletePlantPhoto(ph) {
+  const { error: sErr } = await sb.storage.from("plant-photos").remove([ph.path]);
+  if (sErr) console.error(sErr);
+  const { error } = await sb.from("plant_photos").delete().eq("id", ph.id);
+  if (error) alert(error.message);
 }
 
 function renderAll() {
@@ -340,6 +395,16 @@ function plantingCard(p) {
   }
   if (p.notes) card.append(el("p", { className: "msg", textContent: p.notes }));
 
+  const photos = photosFor(p.id);
+  if (photos.length) {
+    const strip = el("div", { className: "photo-strip" });
+    for (const ph of photos.slice(0, 4)) {
+      strip.append(el("img", { className: "photo-thumb", src: ph.signedUrl || "", alt: "", loading: "lazy" }));
+    }
+    if (photos.length > 4) strip.append(el("span", { className: "photo-more", textContent: `+${photos.length - 4}` }));
+    card.append(strip);
+  }
+
   card.addEventListener("click", () => openPlantingDialog(p));
   return card;
 }
@@ -372,11 +437,35 @@ function renderPlantings() {
 $("#planting-search").addEventListener("input", renderPlantings);
 $("#planting-location-filter").addEventListener("change", renderPlantings);
 $("#add-planting-btn").addEventListener("click", () => openPlantingDialog(null));
+let plantingDialogTomatoId = null;
+function renderPlantingPhotoGrid(tomatoId) {
+  const grid = $("#planting-photo-grid");
+  grid.replaceChildren();
+  for (const ph of photosFor(tomatoId)) {
+    const cell = el("div", { className: "photo-cell" });
+    const img = el("img", { src: ph.signedUrl || "", alt: ph.caption || "Plantfoto", loading: "lazy" });
+    img.addEventListener("click", () => { if (ph.signedUrl) window.open(ph.signedUrl, "_blank"); });
+    const del = el("button", { type: "button", className: "photo-del", textContent: "✕", title: "Ta bort foto" });
+    del.addEventListener("click", async () => {
+      if (!confirm("Ta bort detta foto?")) return;
+      await deletePlantPhoto(ph);
+      await loadPlantPhotos();
+      renderPlantingPhotoGrid(tomatoId);
+      renderPlantings();
+    });
+    cell.append(img, del);
+    grid.append(cell);
+  }
+}
 function openPlantingDialog(p) {
   const form = $("#planting-form");
   form.reset();
   $("#planting-dialog-title").textContent = p ? "Redigera plantor" : "Lägg till plantor";
   $("#planting-delete").hidden = !p;
+  plantingDialogTomatoId = p?.id || null;
+  const addLabel = $("#planting-photo-add-label");
+  const hint = $("#planting-photo-hint");
+  $("#planting-photo-grid").replaceChildren();
   if (p) {
     form.elements.id.value = p.id;
     form.elements.variety_id.value = p.variety_id || "";
@@ -385,11 +474,38 @@ function openPlantingDialog(p) {
     form.elements.planted_date.value = p.planted_date || "";
     form.elements.pruned_on.value = p.pruned_on || "";
     form.elements.notes.value = p.notes || "";
+    renderPlantingPhotoGrid(p.id);
+    addLabel.hidden = false;
+    hint.hidden = true;
   } else {
     form.elements.id.value = "";
+    addLabel.hidden = true;
+    hint.hidden = false;
+    hint.textContent = "Spara plantan först — öppna den sedan igen för att lägga till foton.";
   }
   $("#planting-dialog").showModal();
 }
+$("#planting-photo-input").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file || !plantingDialogTomatoId) return;
+  const text = $("#planting-photo-add-text");
+  const label = $("#planting-photo-add-label");
+  const prev = text.textContent;
+  text.textContent = "Laddar upp…";
+  label.classList.add("busy");
+  try {
+    await uploadPlantPhoto(plantingDialogTomatoId, file);
+    await loadPlantPhotos();
+    renderPlantingPhotoGrid(plantingDialogTomatoId);
+    renderPlantings();
+  } catch (err) {
+    alert("Kunde inte ladda upp bilden: " + (err.message || err));
+  } finally {
+    text.textContent = prev;
+    label.classList.remove("busy");
+  }
+});
 $("#planting-form").addEventListener("submit", async (e) => {
   const action = e.submitter?.value;
   if (action === "cancel") return;
@@ -398,6 +514,9 @@ $("#planting-form").addEventListener("submit", async (e) => {
   const id = fd.get("id");
   if (action === "delete") {
     if (!confirm("Ta bort dessa plantor?")) return;
+    // Ta även bort plantans foton ur storage (DB-raderna städas via cascade).
+    const paths = photosFor(id).map((p) => p.path);
+    if (paths.length) await sb.storage.from("plant-photos").remove(paths);
     const { error } = await sb.from("user_tomatoes").delete().eq("id", id);
     if (error) return alert(error.message);
     $("#planting-dialog").close();
