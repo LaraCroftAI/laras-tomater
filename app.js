@@ -81,8 +81,10 @@ function basename(path) {
 }
 $("#export-btn").addEventListener("click", async () => {
   const btn = $("#export-btn");
-  const prevText = btn.textContent;
+  const label = $("#export-label");
+  const prevText = label.textContent;
   btn.disabled = true;
+  btn.classList.add("busy"); // visar förloppstexten även på mobilen
   try {
     const data = {
       app: "Evas odling",
@@ -105,7 +107,7 @@ $("#export-btn").addEventListener("click", async () => {
     let failed = 0;
     for (let i = 0; i < allPhotos.length; i++) {
       const ph = allPhotos[i];
-      btn.textContent = `Laddar ner… ${i + 1}/${allPhotos.length}`;
+      label.textContent = `Laddar ner… ${i + 1}/${allPhotos.length}`;
       const { data: blob, error } = await sb.storage.from("plant-photos").download(ph.path);
       if (error || !blob) { failed++; continue; }
       const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -121,7 +123,7 @@ $("#export-btn").addEventListener("click", async () => {
       files[name] = [bytes, { level: 0 }]; // JPEG är redan komprimerad → lagra utan omkomprimering
     }
 
-    btn.textContent = "Packar…";
+    label.textContent = "Packar…";
     const zipped = await new Promise((resolve, reject) =>
       zip(files, { level: 6 }, (err, out) => (err ? reject(err) : resolve(out)))
     );
@@ -130,7 +132,8 @@ $("#export-btn").addEventListener("click", async () => {
   } catch (err) {
     alert("Kunde inte skapa exporten: " + (err.message || err));
   } finally {
-    btn.textContent = prevText;
+    label.textContent = prevText;
+    btn.classList.remove("busy");
     btn.disabled = false;
   }
 });

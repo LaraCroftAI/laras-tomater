@@ -157,6 +157,7 @@ input:focus, select:focus, textarea:focus {
   gap: 0.5rem;
   align-items: center;
 }
+.topbar-actions .btn-label { margin-left: 0.35rem; }
 
 /* TABS */
 .tabs {
@@ -557,7 +558,10 @@ dialog .row.gap > * { flex: 1; }
 @media (max-width: 540px) {
   #app-view { padding: 1rem 0.85rem 3rem; }
   .brand h1 { font-size: 1.25rem; }
-  .topbar-actions button.ghost { display: none; }
+  /* Kompakta ikon-knappar på mobilen: göm etiketten, behåll emojin */
+  .topbar-actions button.ghost .btn-label { display: none; }
+  .topbar-actions button.ghost.busy .btn-label { display: inline; }
+  .topbar-actions button.ghost { padding: 0.5rem 0.7rem; }
   .stat-value { font-size: 1.4rem; }
   .section-head input[type="search"] { max-width: 100%; }
 }
