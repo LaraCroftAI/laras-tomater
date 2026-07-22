@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { zip } from "https://esm.sh/fflate@0.8.2";
 
 const SUPABASE_URL = "https://rciaqovopajrkdtuhkdo.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_F1wn2SYtPbldAoCV2j9f9w_-2ZqSf8C";
@@ -64,25 +65,74 @@ authForm.querySelector('[data-action="signup"]').addEventListener("click", async
 });
 $("#logout").addEventListener("click", async () => { await sb.auth.signOut(); });
 
-$("#export-btn").addEventListener("click", () => {
-  const data = {
-    app: "Evas odling",
-    exported_at: new Date().toISOString(),
-    varieties,
-    plantings,
-    harvests,
-    recipes,
-    feedings,
-    plant_photos: plantPhotos.map(({ signedUrl, ...r }) => r),
-    garden_photos: galleryPhotos.map(({ signedUrl, ...r }) => r),
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a = el("a", { href: url, download: `evas-odling-${new Date().toISOString().slice(0, 10)}.json` });
+  const a = el("a", { href: url, download: filename });
   document.body.append(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+function sanitizeName(s) {
+  return (s || "").replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim().slice(0, 60) || "namnlos";
+}
+function basename(path) {
+  return path.split("/").pop();
+}
+$("#export-btn").addEventListener("click", async () => {
+  const btn = $("#export-btn");
+  const prevText = btn.textContent;
+  btn.disabled = true;
+  try {
+    const data = {
+      app: "Evas odling",
+      exported_at: new Date().toISOString(),
+      varieties,
+      plantings,
+      harvests,
+      recipes,
+      feedings,
+      plant_photos: plantPhotos.map(({ signedUrl, ...r }) => r),
+      garden_photos: galleryPhotos.map(({ signedUrl, ...r }) => r),
+    };
+    const files = { "evas-odling.json": new TextEncoder().encode(JSON.stringify(data, null, 2)) };
+
+    // Hämta ner de faktiska bildfilerna ur storage och lägg i zip:en.
+    const allPhotos = [
+      ...plantPhotos.map((p) => ({ ...p, kind: "plant" })),
+      ...galleryPhotos.map((p) => ({ ...p, kind: "gallery" })),
+    ];
+    let failed = 0;
+    for (let i = 0; i < allPhotos.length; i++) {
+      const ph = allPhotos[i];
+      btn.textContent = `Laddar ner… ${i + 1}/${allPhotos.length}`;
+      const { data: blob, error } = await sb.storage.from("plant-photos").download(ph.path);
+      if (error || !blob) { failed++; continue; }
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let name;
+      if (ph.kind === "plant") {
+        const p = plantings.find((x) => x.id === ph.tomato_id);
+        const v = p && varieties.find((x) => x.id === p.variety_id);
+        name = `foton/plantor/${sanitizeName(`${v?.name || "planta"} - ${p?.location || ""}`)}/${basename(ph.path)}`;
+      } else {
+        const cap = ph.caption ? sanitizeName(ph.caption) + "-" : "";
+        name = `foton/galleri/${cap}${basename(ph.path)}`;
+      }
+      files[name] = [bytes, { level: 0 }]; // JPEG är redan komprimerad → lagra utan omkomprimering
+    }
+
+    btn.textContent = "Packar…";
+    const zipped = await new Promise((resolve, reject) =>
+      zip(files, { level: 6 }, (err, out) => (err ? reject(err) : resolve(out)))
+    );
+    triggerDownload(new Blob([zipped], { type: "application/zip" }), `evas-odling-${new Date().toISOString().slice(0, 10)}.zip`);
+    if (failed) alert(`${failed} av ${allPhotos.length} foton kunde inte laddas ner och saknas i zip-filen.`);
+  } catch (err) {
+    alert("Kunde inte skapa exporten: " + (err.message || err));
+  } finally {
+    btn.textContent = prevText;
+    btn.disabled = false;
+  }
 });
 
 sb.auth.onAuthStateChange((_event, session) => {
