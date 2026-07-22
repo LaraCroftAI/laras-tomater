@@ -436,6 +436,49 @@ input:focus, select:focus, textarea:focus {
 .photo-add:hover { background: var(--bg); color: var(--ink); }
 .photo-add.busy { opacity: 0.6; pointer-events: none; }
 
+/* GALLERY */
+.gallery {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+.gallery-item {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--card);
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.gallery-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gallery-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.7rem 0.6rem 0.45rem;
+  font-size: 0.8rem;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* MESSAGES */
 .msg {
   color: var(--ink-soft);

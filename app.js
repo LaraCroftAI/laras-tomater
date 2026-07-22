@@ -21,6 +21,7 @@ let harvests = [];
 let recipes = [];
 let feedings = [];
 let plantPhotos = [];
+let galleryPhotos = [];
 let recipeVarietyIds = [];
 
 const authView = $("#auth-view");
@@ -73,6 +74,7 @@ $("#export-btn").addEventListener("click", () => {
     recipes,
     feedings,
     plant_photos: plantPhotos.map(({ signedUrl, ...r }) => r),
+    garden_photos: galleryPhotos.map(({ signedUrl, ...r }) => r),
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -100,7 +102,7 @@ $$(".tab").forEach((btn) => {
 
 // ---------------- LOAD ----------------
 async function loadAll() {
-  await Promise.all([loadVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings(), loadPlantPhotos()]);
+  await Promise.all([loadVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings(), loadPlantPhotos(), loadGalleryPhotos()]);
   renderAll();
 }
 async function loadVarieties() {
@@ -154,6 +156,20 @@ async function loadPlantPhotos() {
 function photosFor(tomatoId) {
   return plantPhotos.filter((p) => p.tomato_id === tomatoId);
 }
+async function loadGalleryPhotos() {
+  const { data, error } = await sb
+    .from("garden_photos")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) return console.error(error);
+  galleryPhotos = data;
+  const paths = galleryPhotos.map((p) => p.path);
+  if (!paths.length) return;
+  const { data: signed, error: sErr } = await sb.storage.from("plant-photos").createSignedUrls(paths, 28800);
+  if (sErr) return console.error(sErr);
+  const map = new Map((signed || []).map((s) => [s.path, s.signedUrl]));
+  for (const p of galleryPhotos) p.signedUrl = map.get(p.path);
+}
 
 // ---------------- PLANT PHOTOS ----------------
 // Komprimerar en bild i webbläsaren till JPEG innan uppladdning (håller gratis-tierns lagring nere).
@@ -198,6 +214,7 @@ function renderAll() {
   renderFeedings();
   renderHarvests();
   renderRecipes();
+  renderGallery();
   populateVarietySelects();
 }
 
@@ -875,6 +892,85 @@ $("#recipe-form").addEventListener("submit", async (e) => {
   if (error) return alert(error.message);
   $("#recipe-dialog").close();
   await loadAll();
+});
+
+// ---------------- GALLERY (Växthusgalleri) ----------------
+function galleryCard(ph) {
+  const card = el("li", { className: "gallery-item" });
+  card.append(el("img", { src: ph.signedUrl || "", alt: ph.caption || "Växthusfoto", loading: "lazy" }));
+  if (ph.caption) card.append(el("span", { className: "gallery-caption", textContent: ph.caption }));
+  card.addEventListener("click", () => openGalleryDialog(ph));
+  return card;
+}
+function renderGallery() {
+  const list = $("#gallery-list");
+  list.replaceChildren();
+  $("#gallery-empty").hidden = galleryPhotos.length > 0;
+  for (const ph of galleryPhotos) list.append(galleryCard(ph));
+}
+$("#gallery-photo-input").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  const text = $("#gallery-add-text");
+  const label = $("#gallery-add-label");
+  const prev = text.textContent;
+  text.textContent = "Laddar upp…";
+  label.classList.add("busy");
+  try {
+    const blob = await compressImage(file);
+    const path = `${currentUser.id}/gallery/${crypto.randomUUID()}.jpg`;
+    const { error: upErr } = await sb.storage.from("plant-photos").upload(path, blob, { contentType: "image/jpeg" });
+    if (upErr) throw upErr;
+    const { error: insErr } = await sb.from("garden_photos").insert({ user_id: currentUser.id, path });
+    if (insErr) throw insErr;
+    await loadGalleryPhotos();
+    renderGallery();
+  } catch (err) {
+    alert("Kunde inte ladda upp bilden: " + (err.message || err));
+  } finally {
+    text.textContent = prev;
+    label.classList.remove("busy");
+  }
+});
+function openGalleryDialog(ph) {
+  const form = $("#gallery-form");
+  form.reset();
+  const img = $("#gallery-dialog-image");
+  if (ph.signedUrl) {
+    img.src = ph.signedUrl;
+    img.alt = ph.caption || "";
+    img.hidden = false;
+  } else {
+    img.hidden = true;
+    img.removeAttribute("src");
+  }
+  form.elements.id.value = ph.id;
+  form.elements.caption.value = ph.caption || "";
+  $("#gallery-dialog").showModal();
+}
+$("#gallery-form").addEventListener("submit", async (e) => {
+  const action = e.submitter?.value;
+  if (action === "cancel") return;
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const id = fd.get("id");
+  const ph = galleryPhotos.find((p) => p.id === id);
+  if (action === "delete") {
+    if (!confirm("Ta bort detta foto?")) return;
+    if (ph) await sb.storage.from("plant-photos").remove([ph.path]);
+    const { error } = await sb.from("garden_photos").delete().eq("id", id);
+    if (error) return alert(error.message);
+    $("#gallery-dialog").close();
+    await loadGalleryPhotos();
+    renderGallery();
+    return;
+  }
+  const { error } = await sb.from("garden_photos").update({ caption: fd.get("caption") || null }).eq("id", id);
+  if (error) return alert(error.message);
+  $("#gallery-dialog").close();
+  await loadGalleryPhotos();
+  renderGallery();
 });
 
 // ---------------- SELECTS ----------------
