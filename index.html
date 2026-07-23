@@ -19,7 +19,22 @@
         <button type="submit" data-action="login">Logga in</button>
         <button type="button" data-action="signup" class="ghost">Skapa konto</button>
       </div>
+      <button type="button" id="forgot-btn" class="linkish">Glömt lösenordet?</button>
       <p id="auth-msg" class="msg"></p>
+    </form>
+  </div>
+</section>
+
+<section id="recovery-view" hidden>
+  <div class="auth-card">
+    <h1>Nytt lösenord</h1>
+    <form id="recovery-form">
+      <label>Nytt lösenord<input type="password" id="new-password" required minlength="6" autocomplete="new-password" /></label>
+      <label>Upprepa lösenordet<input type="password" id="new-password-2" required minlength="6" autocomplete="new-password" /></label>
+      <div class="row">
+        <button type="submit" class="primary">Spara lösenord</button>
+      </div>
+      <p id="recovery-msg" class="msg"></p>
     </form>
   </div>
 </section>

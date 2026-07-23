@@ -5,6 +5,11 @@ const SUPABASE_URL = "https://rciaqovopajrkdtuhkdo.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_F1wn2SYtPbldAoCV2j9f9w_-2ZqSf8C";
 const SEASON = "2026";
 
+// Läs adressfältet INNAN klienten skapas – supabase-js städar bort taggen efter sig.
+const urlParams = new URLSearchParams(location.hash.slice(1));
+const isRecoveryLink = urlParams.get("type") === "recovery";
+const urlAuthError = urlParams.get("error_description") || urlParams.get("error");
+
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = (sel) => document.querySelector(sel);
@@ -27,10 +32,22 @@ let recipeVarietyIds = [];
 
 const authView = $("#auth-view");
 const appView = $("#app-view");
+const recoveryView = $("#recovery-view");
 const authForm = $("#auth-form");
 const authMsg = $("#auth-msg");
 
-function showAuth() { authView.hidden = false; appView.hidden = true; }
+// Sant medan användaren kommit hit via en återställningslänk och ännu inte satt nytt lösenord.
+let recoveryMode = false;
+
+function showAuth() { authView.hidden = false; appView.hidden = true; recoveryView.hidden = true; }
+function showRecovery() { recoveryView.hidden = false; authView.hidden = true; appView.hidden = true; }
+function authError(text) {
+  authMsg.textContent = text;
+  authMsg.classList.add("error");
+}
+// Plockar bort token/felkod ur adressfältet så en omladdning inte kör om flödet.
+function cleanUrl() { history.replaceState(null, "", location.pathname); }
+
 async function showApp() {
   const { data: allowed } = await sb.rpc("is_allowed");
   if (!allowed) {
@@ -41,6 +58,7 @@ async function showApp() {
     return;
   }
   authView.hidden = true;
+  recoveryView.hidden = true;
   appView.hidden = false;
   await loadAll();
 }
@@ -64,6 +82,56 @@ authForm.querySelector('[data-action="signup"]').addEventListener("click", async
   else { authMsg.textContent = "Konto skapat — du är inloggad."; authMsg.classList.remove("error"); }
 });
 $("#logout").addEventListener("click", async () => { await sb.auth.signOut(); });
+
+// ---------------- GLÖMT LÖSENORD ----------------
+$("#forgot-btn").addEventListener("click", async () => {
+  const btn = $("#forgot-btn");
+  const email = $("#email").value.trim();
+  authMsg.textContent = "";
+  authMsg.classList.remove("error");
+  if (!email) {
+    authError("Fyll i din e-postadress först, så skickar jag en återställningslänk dit.");
+    $("#email").focus();
+    return;
+  }
+  const prev = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Skickar…";
+  // Länken i mailet ska leda tillbaka hit, till samma sida.
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: location.origin + location.pathname,
+  });
+  btn.textContent = prev;
+  btn.disabled = false;
+  if (error) return authError(error.message);
+  authMsg.textContent = `Ett mail är på väg till ${email}. Klicka på länken i mailet så får du välja ett nytt lösenord. Kolla skräpposten om det dröjer.`;
+});
+
+$("#recovery-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("#recovery-msg");
+  const btn = e.target.querySelector('button[type="submit"]');
+  msg.classList.remove("error");
+  const pw = $("#new-password").value;
+  if (pw !== $("#new-password-2").value) {
+    msg.textContent = "Lösenorden är inte lika – skriv samma på båda raderna.";
+    msg.classList.add("error");
+    return;
+  }
+  btn.disabled = true;
+  msg.textContent = "Sparar…";
+  const { error } = await sb.auth.updateUser({ password: pw });
+  btn.disabled = false;
+  if (error) {
+    msg.textContent = error.message;
+    msg.classList.add("error");
+    return;
+  }
+  recoveryMode = false;
+  cleanUrl();
+  msg.textContent = "Lösenordet är ändrat.";
+  await showApp();
+});
 
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -138,8 +206,15 @@ $("#export-btn").addEventListener("click", async () => {
   }
 });
 
-sb.auth.onAuthStateChange((_event, session) => {
+sb.auth.onAuthStateChange((event, session) => {
   currentUser = session?.user ?? null;
+  if (event === "PASSWORD_RECOVERY") {
+    recoveryMode = true;
+    return showRecovery();
+  }
+  // Under återställningen finns en giltig session, men appen ska vänta tills
+  // det nya lösenordet är satt – annars hoppar vi rakt in i appen i stället.
+  if (recoveryMode) return;
   if (session) showApp();
   else showAuth();
 });
@@ -1224,6 +1299,30 @@ function populateVarietySelects() {
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   currentUser = session?.user ?? null;
+
+  // Supabase skickar tillbaka fel i adressfältet, t.ex. utgången länk.
+  if (urlAuthError) {
+    cleanUrl();
+    showAuth();
+    authError(
+      /expired|invalid/i.test(urlAuthError)
+        ? "Återställningslänken har gått ut eller är redan använd. Be om en ny med \"Glömt lösenordet?\"."
+        : urlAuthError
+    );
+    return;
+  }
+
+  if (isRecoveryLink) {
+    if (session) {
+      recoveryMode = true;
+      return showRecovery();
+    }
+    cleanUrl();
+    showAuth();
+    authError("Återställningslänken gick inte att använda. Be om en ny med \"Glömt lösenordet?\".");
+    return;
+  }
+
   if (session) showApp();
   else showAuth();
 })();
