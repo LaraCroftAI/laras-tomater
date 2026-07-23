@@ -37,7 +37,9 @@ const authForm = $("#auth-form");
 const authMsg = $("#auth-msg");
 
 // Sant medan användaren kommit hit via en återställningslänk och ännu inte satt nytt lösenord.
-let recoveryMode = false;
+// Måste sättas direkt vid start: supabase-js meddelar "du har en session" innan vår egen
+// uppstart hunnit köra, och utan flaggan öppnas appen i stället för lösenordsskärmen.
+let recoveryMode = isRecoveryLink;
 
 function showAuth() { authView.hidden = false; appView.hidden = true; recoveryView.hidden = true; }
 function showRecovery() { recoveryView.hidden = false; authView.hidden = true; appView.hidden = true; }
@@ -212,9 +214,14 @@ sb.auth.onAuthStateChange((event, session) => {
     recoveryMode = true;
     return showRecovery();
   }
+  // Utloggning ska alltid gå igenom, även mitt i en påbörjad återställning.
+  if (event === "SIGNED_OUT") {
+    recoveryMode = false;
+    return showAuth();
+  }
   // Under återställningen finns en giltig session, men appen ska vänta tills
   // det nya lösenordet är satt – annars hoppar vi rakt in i appen i stället.
-  if (recoveryMode) return;
+  if (recoveryMode) return session ? showRecovery() : undefined;
   if (session) showApp();
   else showAuth();
 });
@@ -1302,6 +1309,7 @@ function populateVarietySelects() {
 
   // Supabase skickar tillbaka fel i adressfältet, t.ex. utgången länk.
   if (urlAuthError) {
+    recoveryMode = false;
     cleanUrl();
     showAuth();
     authError(
@@ -1312,11 +1320,9 @@ function populateVarietySelects() {
     return;
   }
 
-  if (isRecoveryLink) {
-    if (session) {
-      recoveryMode = true;
-      return showRecovery();
-    }
+  if (recoveryMode) {
+    if (session) return showRecovery();
+    recoveryMode = false;
     cleanUrl();
     showAuth();
     authError("Återställningslänken gick inte att använda. Be om en ny med \"Glömt lösenordet?\".");
