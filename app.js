@@ -346,6 +346,13 @@ function varietyCard(v) {
   if (psum) meta.append(metaRow("🌱", psum));
   if (meta.children.length) card.append(meta);
 
+  if (v.flavor) {
+    const flavor = el("p", { className: "card-flavor" });
+    flavor.append(el("span", { className: "meta-icon", textContent: "😋" }));
+    flavor.append(el("span", { textContent: v.flavor }));
+    card.append(flavor);
+  }
+
   if (v.use_tags?.length) {
     const ut = el("div", { className: "use-tags" });
     for (const t of v.use_tags) ut.append(tag(t, "beige"));
@@ -370,7 +377,7 @@ function renderLibrary(filter = "") {
   list.replaceChildren();
   const f = filter.toLowerCase();
   const filtered = f
-    ? varieties.filter((v) => `${v.name} ${v.category || ""} ${v.growth_type || ""} ${(v.use_tags || []).join(" ")} ${v.notes || ""}`.toLowerCase().includes(f))
+    ? varieties.filter((v) => `${v.name} ${v.category || ""} ${v.growth_type || ""} ${(v.use_tags || []).join(" ")} ${v.flavor || ""} ${v.notes || ""}`.toLowerCase().includes(f))
     : varieties;
   $("#sorter-heading").textContent = `Sorter · ${filtered.length} st`;
   for (const v of filtered) list.append(varietyCard(v));
@@ -394,6 +401,7 @@ function openVarietyDialog(v) {
     form.elements.pruning.value = v.pruning || "";
     form.elements.default_location.value = v.default_location || "";
     form.elements.use_tags.value = (v.use_tags || []).join(", ");
+    form.elements.flavor.value = v.flavor || "";
     form.elements.pruning_notes.value = v.pruning_notes || "";
     form.elements.notes.value = v.notes || "";
   } else {
@@ -425,6 +433,7 @@ $("#variety-form").addEventListener("submit", async (e) => {
     pruning: fd.get("pruning") || null,
     default_location: fd.get("default_location") || null,
     use_tags: useTags,
+    flavor: fd.get("flavor") || null,
     pruning_notes: fd.get("pruning_notes") || null,
     notes: fd.get("notes") || null,
   };

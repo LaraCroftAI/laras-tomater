@@ -14,11 +14,15 @@ create table if not exists tomato_varieties (
   pruning text,                  -- Tjuvas ej / regelbundet / vid högväxt ...
   default_location text,         -- standardplacering, t.ex. Kruka / Växthus
   use_tags text[] default '{}',  -- användning: Sallad, Söt, Sås ...
+  flavor text,                   -- smakminne: hur smakade den?
   pruning_notes text,            -- fritext om beskärning (t.ex. bärbuskar)
   notes text,
   created_by uuid references auth.users(id),
   created_at timestamptz default now()
 );
+
+-- Fanns tabellen redan innan smakfältet lades till (2026-07-23):
+alter table tomato_varieties add column if not exists flavor text;
 
 -- ---------- ODLING (privata plantor per säsong) ----------
 create table if not exists user_tomatoes (

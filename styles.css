@@ -358,6 +358,17 @@ input:focus, select:focus, textarea:focus {
   border-top: 1px solid var(--line);
   margin-top: auto;
 }
+.card-flavor {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+.card-flavor .meta-icon { font-style: normal; }
 .card-notes {
   white-space: pre-wrap;
   font-size: 0.82rem;
