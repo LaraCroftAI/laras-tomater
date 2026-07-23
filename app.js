@@ -725,21 +725,196 @@ function harvestCard(h) {
   card.addEventListener("click", () => openHarvestDialog(h));
   return card;
 }
+// Årsfilter: gäller hela fliken (summering, diagram och listan) — inte per diagram.
+let harvestYear = null;
+function harvestYears() {
+  return [...new Set(harvests.map((h) => (h.harvested_at || "").slice(0, 4)).filter(Boolean))].sort().reverse();
+}
+function populateHarvestYearFilter() {
+  const sel = $("#harvest-year-filter");
+  const years = harvestYears();
+  if (harvestYear === null) {
+    const thisYear = String(new Date().getFullYear());
+    harvestYear = years.includes(thisYear) ? thisYear : years[0] ?? "";
+  }
+  if (harvestYear && !years.includes(harvestYear)) harvestYear = years[0] ?? "";
+  sel.replaceChildren();
+  for (const y of years) sel.append(el("option", { value: y, textContent: y }));
+  sel.append(el("option", { value: "", textContent: "Alla år" }));
+  sel.value = harvestYear;
+  sel.hidden = years.length < 2; // visas först när det finns skörd från flera år
+}
+function filteredHarvests() {
+  return harvestYear ? harvests.filter((h) => (h.harvested_at || "").startsWith(harvestYear)) : harvests;
+}
+$("#harvest-year-filter").addEventListener("change", (e) => {
+  harvestYear = e.target.value;
+  renderHarvests();
+});
+
+const nf = (n, d = 0) => n.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d });
+// Skalstrecken håller sig till en enhet: kg om största värdet är minst ett kilo, annars gram.
+function pickUnit(maxGrams) { return maxGrams >= 1000 ? "kg" : "g"; }
+function weightText(grams, unit) {
+  return unit === "kg" ? `${nf(grams / 1000, 1)} kg` : `${nf(Math.round(grams))} g`;
+}
+// Enskilda värden får sin egen enhet, annars blir en liten skörd "0,0 kg".
+function autoWeight(grams) { return weightText(grams, pickUnit(grams)); }
+function harvestWord(n) { return n === 1 ? "skörd" : "skördar"; }
+
 function renderHarvests() {
+  populateHarvestYearFilter();
+  const rows = filteredHarvests();
+
   const list = $("#harvest-list");
   list.replaceChildren();
-  $("#harvest-empty").hidden = harvests.length > 0;
-  for (const h of harvests) list.append(harvestCard(h));
+  for (const h of rows) list.append(harvestCard(h));
+  const empty = $("#harvest-empty");
+  empty.hidden = rows.length > 0;
+  empty.textContent = harvests.length === 0
+    ? "Inga skördar registrerade än."
+    : `Inga skördar registrerade för ${harvestYear}.`;
+  $("#harvest-list-heading").textContent = rows.length ? `Alla skördar · ${rows.length} st` : "Alla skördar";
 
   const sum = $("#harvest-summary");
   sum.replaceChildren();
-  if (harvests.length === 0) { sum.hidden = true; return; }
-  sum.hidden = false;
-  const totalKg = (harvests.reduce((s, h) => s + (h.weight_g || 0), 0) / 1000).toFixed(2);
-  sum.append(stat("Totalt", `${totalKg} kg`));
-  sum.append(stat("Antal skördar", harvests.length));
-  const varietyCount = new Set(harvests.map((h) => h.variety_id).filter(Boolean)).size;
-  sum.append(stat("Antal sorter", varietyCount));
+  sum.hidden = rows.length === 0;
+  if (rows.length) {
+    const grams = rows.reduce((s, h) => s + (h.weight_g || 0), 0);
+    sum.append(stat("Totalt", autoWeight(grams)));
+    sum.append(stat("Antal skördar", rows.length));
+    sum.append(stat("Antal sorter", new Set(rows.map((h) => h.variety_id).filter(Boolean)).size));
+    sum.append(stat("Senaste skörd", new Date(rows[0].harvested_at).toLocaleDateString("sv-SE")));
+  }
+
+  renderHarvestCharts(rows);
+}
+
+// ---------------- HARVEST CHARTS ----------------
+const MONTHS_SV = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+
+function renderHarvestCharts(rows) {
+  const monthCols = renderMonthChart(rows);
+  const varietyRows = renderVarietyChart(rows);
+  // Ett ensamt streck är inget diagram — visa först när det finns något att jämföra.
+  $("#month-figure").hidden = monthCols < 2;
+  $("#variety-figure").hidden = varietyRows < 2;
+  const nothing = monthCols < 2 && varietyRows < 2;
+  $("#harvest-charts").hidden = nothing;
+  $("#chart-hint").hidden = !nothing || rows.length === 0;
+}
+
+function renderMonthChart(rows) {
+  const chart = $("#month-chart");
+  chart.replaceChildren();
+
+  const byMonth = new Map();
+  for (const h of rows) {
+    if (!h.harvested_at) continue;
+    const key = h.harvested_at.slice(0, 7);
+    const cur = byMonth.get(key) || { grams: 0, count: 0 };
+    cur.grams += h.weight_g || 0;
+    cur.count++;
+    byMonth.set(key, cur);
+  }
+  const keys = [...byMonth.keys()].sort();
+  if (!keys.length) return 0;
+
+  // Fyll ut månader utan skörd så tidsaxeln blir jämn.
+  const months = [];
+  let [y, m] = keys[0].split("-").map(Number);
+  const [endY, endM] = keys[keys.length - 1].split("-").map(Number);
+  while (y < endY || (y === endY && m <= endM)) {
+    const key = `${y}-${String(m).padStart(2, "0")}`;
+    months.push({ y, m, ...(byMonth.get(key) || { grams: 0, count: 0 }) });
+    if (++m > 12) { m = 1; y++; }
+  }
+  if (months.length < 2) return months.length;
+
+  const max = Math.max(...months.map((a) => a.grams), 1);
+  const unit = pickUnit(max);
+  chart.style.setProperty("--n", months.length);
+
+  const yAxis = el("div", { className: "cm-y" });
+  for (const v of [max, max / 2, 0]) yAxis.append(el("span", { textContent: v ? weightText(v, unit) : "0" }));
+
+  const plot = el("div", { className: "cm-plot" });
+  const grid = el("div", { className: "cm-grid" });
+  grid.append(el("i"), el("i"), el("i"));
+  plot.append(grid);
+
+  const xAxis = el("div", { className: "cm-xaxis" });
+  const caption = $("#month-caption");
+  const totalGrams = months.reduce((s, a) => s + a.grams, 0);
+  const totalCount = months.reduce((s, a) => s + a.count, 0);
+  const defaultCaption = `${autoWeight(totalGrams)} totalt · ${totalCount} ${harvestWord(totalCount)}`;
+  caption.textContent = defaultCaption;
+
+  const last = months[months.length - 1];
+  const spansYears = months[0].y !== last.y;
+  for (const a of months) {
+    const label = autoWeight(a.grams);
+    const full = `${MONTHS_SV[a.m - 1]} ${a.y}: ${label} · ${a.count} ${harvestWord(a.count)}`;
+    const btn = el("button", { type: "button", className: "cm-btn" });
+    btn.setAttribute("aria-label", full);
+    // Bara toppen och den senaste månaden får en siffra – resten läses av på skalan eller vid klick.
+    if (a.grams > 0 && (a.grams === max || a === last)) {
+      btn.append(el("span", { className: "cm-cap", textContent: label }));
+    }
+    const bar = el("span", { className: a.grams ? "cm-bar" : "cm-bar empty" });
+    bar.style.height = a.grams ? `${Math.max(2, (a.grams / max) * 100)}%` : "2px";
+    btn.append(bar);
+    const show = () => { caption.textContent = full; };
+    btn.addEventListener("pointerenter", show);
+    btn.addEventListener("focus", show);
+    btn.addEventListener("click", show);
+    plot.append(btn);
+    // Årtal på x-axeln bara när diagrammet spänner över flera år (annars säger rubriken vilket år det är).
+    const xLabel = MONTHS_SV[a.m - 1] + (spansYears && (a.m === 1 || a === months[0]) ? ` -${String(a.y).slice(2)}` : "");
+    xAxis.append(el("span", { className: "cm-x", textContent: xLabel }));
+  }
+  plot.addEventListener("pointerleave", () => { caption.textContent = defaultCaption; });
+
+  chart.append(yAxis, plot, xAxis);
+  return months.length;
+}
+
+function renderVarietyChart(rows) {
+  const chart = $("#variety-chart");
+  chart.replaceChildren();
+
+  const byVariety = new Map();
+  for (const h of rows) {
+    const key = h.variety_id || "";
+    const cur = byVariety.get(key) || { grams: 0, count: 0 };
+    cur.grams += h.weight_g || 0;
+    cur.count++;
+    byVariety.set(key, cur);
+  }
+  const items = [...byVariety.entries()]
+    .map(([id, v]) => {
+      const variety = varieties.find((x) => x.id === id);
+      return { name: variety ? `${varietyIcon(variety)} ${variety.name}` : "🧺 (ingen sort)", ...v };
+    })
+    .sort((a, b) => b.grams - a.grams || a.name.localeCompare(b.name, "sv"));
+  if (items.length < 2) return items.length;
+
+  const max = Math.max(...items.map((i) => i.grams), 1);
+  for (const item of items) {
+    const li = el("li", { className: "vb-row" });
+    li.title = `${item.name}: ${autoWeight(item.grams)} · ${item.count} ${harvestWord(item.count)}`;
+    const top = el("div", { className: "vb-top" });
+    top.append(el("span", { className: "vb-name", textContent: item.name }));
+    top.append(el("span", { className: "vb-val", textContent: autoWeight(item.grams) }));
+    const track = el("div", { className: "vb-track" });
+    const bar = el("div", { className: "vb-bar" });
+    bar.style.width = `${Math.max(2, (item.grams / max) * 100)}%`;
+    track.append(bar);
+    li.append(top, track);
+    chart.append(li);
+  }
+  $("#variety-caption").textContent = `Störst: ${items[0].name} · ${autoWeight(items[0].grams)}`;
+  return items.length;
 }
 function stat(label, value) {
   const wrap = el("div", { className: "ks" });

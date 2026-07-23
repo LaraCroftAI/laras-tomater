@@ -13,6 +13,9 @@
   --beige: #F0E8D8;
   --beige-ink: #6B5B3D;
   --danger: #B5413A;
+  /* Diagramfärger (validerade mot vit kortyta: kontrast 5,4:1, klarar färgblindhetstest) */
+  --series: #2E7D32;
+  --series-track: #EAF1E7;
 }
 
 [hidden] { display: none !important; }
@@ -552,6 +555,152 @@ dialog .row.gap > * { flex: 1; }
   font-family: Georgia, serif;
   font-size: 1.2rem;
   font-weight: 600;
+}
+
+/* HARVEST CHARTS */
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+.chart-card {
+  margin: 0;
+  align-self: start; /* korten är olika höga – sträck inte ut det korta */
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem;
+}
+.chart-head { margin-bottom: 1.1rem; }
+.chart-head h3 { font-size: 1rem; }
+.chart-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  min-height: 2.4em;
+}
+
+/* Kolumndiagram: skörd per månad */
+.cm {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5rem;
+}
+.cm-y {
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cm-y span { transform: translateY(-0.4em); }
+.cm-plot {
+  position: relative;
+  height: 150px;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  align-items: end;
+  /* Med bara ett par månader blir kolumnerna annars löjligt breda */
+  max-width: calc(var(--n) * 96px);
+}
+.cm-grid {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.cm-grid i { display: block; height: 1px; background: var(--line); }
+.cm-btn {
+  position: relative; /* lägger staplarna ovanför rutnätslinjerna */
+  height: 100%;
+  width: 100%;
+  padding: 0 2px; /* ger minst 2px luft mellan staplarna */
+  border: none;
+  background: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  cursor: default;
+}
+.cm-btn:hover { background: none; }
+.cm-btn:hover .cm-bar,
+.cm-btn:focus-visible .cm-bar { filter: brightness(1.15); }
+.cm-cap {
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.2rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cm-bar {
+  width: 100%;
+  max-width: 24px;
+  background: var(--series);
+  border-radius: 4px 4px 0 0;
+}
+.cm-bar.empty { background: var(--line-strong); border-radius: 0; }
+.cm-xaxis {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  max-width: calc(var(--n) * 96px);
+  padding-top: 0.4rem;
+}
+.cm-x {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* Stapeldiagram: skörd per sort */
+.vb {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.vb-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.vb-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.vb-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vb-val {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.vb-track {
+  height: 10px;
+  border-radius: 4px;
+  background: var(--series-track);
+}
+.vb-bar {
+  height: 100%;
+  background: var(--series);
+  border-radius: 0 4px 4px 0;
 }
 
 /* MOBILE */

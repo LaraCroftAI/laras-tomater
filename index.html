@@ -86,9 +86,32 @@
   <section id="tab-skord" class="tab-panel" hidden>
     <div class="section-head">
       <h2>Skörd</h2>
+      <select id="harvest-year-filter" aria-label="Filtrera på år" hidden></select>
       <button id="add-harvest-btn" class="primary">+ Skörd</button>
     </div>
     <div class="harvest-summary" id="harvest-summary"></div>
+
+    <div class="charts" id="harvest-charts" hidden>
+      <figure class="chart-card" id="month-figure">
+        <figcaption class="chart-head">
+          <h3>Skörd per månad</h3>
+          <p class="chart-sub" id="month-caption"></p>
+        </figcaption>
+        <div class="cm" id="month-chart"></div>
+      </figure>
+      <figure class="chart-card" id="variety-figure">
+        <figcaption class="chart-head">
+          <h3>Skörd per sort</h3>
+          <p class="chart-sub" id="variety-caption"></p>
+        </figcaption>
+        <ul class="vb" id="variety-chart"></ul>
+      </figure>
+    </div>
+    <p id="chart-hint" class="msg" hidden>Diagrammen dyker upp när du har skördat vid fler tillfällen — från mer än en sort eller under mer än en månad.</p>
+
+    <div class="section-head spaced">
+      <h2 id="harvest-list-heading">Alla skördar</h2>
+    </div>
     <ul id="harvest-list" class="cards"></ul>
     <p id="harvest-empty" class="msg" hidden>Inga skördar registrerade än.</p>
   </section>
