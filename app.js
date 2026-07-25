@@ -599,10 +599,19 @@ $("#planting-search").addEventListener("input", renderPlantings);
 $("#planting-location-filter").addEventListener("change", renderPlantings);
 $("#add-planting-btn").addEventListener("click", () => openPlantingDialog(null));
 let plantingDialogTomatoId = null;
+// Kort datumetikett för foton: "10 jul", med årtal när det inte är innevarande år.
+function photoDateLabel(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const base = `${d.getDate()} ${MONTHS_SV[d.getMonth()]}`;
+  return d.getFullYear() === new Date().getFullYear() ? base : `${base} ${d.getFullYear()}`;
+}
 function renderPlantingPhotoGrid(tomatoId) {
   const grid = $("#planting-photo-grid");
   grid.replaceChildren();
-  for (const ph of photosFor(tomatoId)) {
+  // Äldst först i plantdialogen så fotona läses som en tidslinje.
+  const photos = photosFor(tomatoId).slice().sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  for (const ph of photos) {
     const cell = el("div", { className: "photo-cell" });
     const img = el("img", { src: ph.signedUrl || "", alt: ph.caption || "Plantfoto", loading: "lazy" });
     img.addEventListener("click", () => { if (ph.signedUrl) window.open(ph.signedUrl, "_blank"); });
@@ -614,7 +623,7 @@ function renderPlantingPhotoGrid(tomatoId) {
       renderPlantingPhotoGrid(tomatoId);
       renderPlantings();
     });
-    cell.append(img, del);
+    cell.append(img, del, el("span", { className: "photo-date", textContent: photoDateLabel(ph.created_at) }));
     grid.append(cell);
   }
 }
@@ -1221,7 +1230,10 @@ $("#recipe-form").addEventListener("submit", async (e) => {
 function galleryCard(ph) {
   const card = el("li", { className: "gallery-item" });
   card.append(el("img", { src: ph.signedUrl || "", alt: ph.caption || "Växthusfoto", loading: "lazy" }));
-  if (ph.caption) card.append(el("span", { className: "gallery-caption", textContent: ph.caption }));
+  const overlay = el("div", { className: "gallery-overlay" });
+  if (ph.caption) overlay.append(el("span", { className: "gallery-caption-text", textContent: ph.caption }));
+  overlay.append(el("span", { className: "gallery-date", textContent: photoDateLabel(ph.created_at) }));
+  card.append(overlay);
   card.addEventListener("click", () => openGalleryDialog(ph));
   return card;
 }

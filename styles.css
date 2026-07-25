@@ -423,15 +423,23 @@ input:focus, select:focus, textarea:focus {
 .photo-cell {
   position: relative;
   width: 80px;
-  height: 80px;
 }
 .photo-cell img {
-  width: 100%;
-  height: 100%;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid var(--line);
   cursor: pointer;
+  display: block;
+}
+.photo-date {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .photo-del {
   position: absolute;
@@ -492,18 +500,28 @@ input:focus, select:focus, textarea:focus {
   object-fit: cover;
   display: block;
 }
-.gallery-caption {
+.gallery-overlay {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0.7rem 0.6rem 0.45rem;
-  font-size: 0.8rem;
+  padding: 0.9rem 0.6rem 0.45rem;
   color: #fff;
-  background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0));
+  background: linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0));
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.gallery-caption-text {
+  font-size: 0.8rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.gallery-date {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.85);
+  font-variant-numeric: tabular-nums;
 }
 
 /* MESSAGES */
