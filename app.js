@@ -853,6 +853,16 @@ function weightText(grams, unit) {
 function autoWeight(grams) { return weightText(grams, pickUnit(grams)); }
 function harvestWord(n) { return n === 1 ? "skörd" : "skördar"; }
 
+// Tomat eller övrigt (bär/chili)? Samma logik som varietyIcon: allt som visas med 🍅
+// räknas som tomat, resten (🌶️ chili, 🫐 blåbär, 🍇 vinbär) som övrigt. Bär utan
+// igenkänt namn fångas dessutom på kategorin. Ingen/okänd sort räknas som tomat.
+function isTomatoHarvest(varietyId) {
+  const v = varieties.find((x) => x.id === varietyId);
+  if (!v) return true;
+  if (v.category === "Bär" || v.category === "Chili") return false;
+  return varietyIcon(v) === "🍅";
+}
+
 function renderHarvests() {
   populateHarvestYearFilter();
   const rows = filteredHarvests();
@@ -872,7 +882,10 @@ function renderHarvests() {
   sum.hidden = rows.length === 0;
   if (rows.length) {
     const grams = rows.reduce((s, h) => s + (h.weight_g || 0), 0);
-    sum.append(stat("Totalt", autoWeight(grams)));
+    const tomatoGrams = rows.filter((h) => isTomatoHarvest(h.variety_id)).reduce((s, h) => s + (h.weight_g || 0), 0);
+    const otherGrams = grams - tomatoGrams;
+    sum.append(stat("Tomater", autoWeight(tomatoGrams)));
+    sum.append(stat("Övrigt", autoWeight(otherGrams)));
     sum.append(stat("Antal skördar", rows.length));
     sum.append(stat("Antal sorter", new Set(rows.map((h) => h.variety_id).filter(Boolean)).size));
     sum.append(stat("Senaste skörd", new Date(rows[0].harvested_at).toLocaleDateString("sv-SE")));
