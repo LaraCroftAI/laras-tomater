@@ -1160,7 +1160,6 @@ $("#recipe-variety-add").addEventListener("change", (e) => {
 function openRecipeDialog(r) {
   const form = $("#recipe-form");
   form.reset();
-  $("#recipe-delete").hidden = !r;
   $("#recipe-print").hidden = !r;
   const dlgImg = $("#recipe-dialog-image");
   if (r?.image_url) {
@@ -1188,14 +1187,6 @@ $("#recipe-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
   const id = fd.get("id");
-  if (action === "delete") {
-    if (!confirm("Ta bort detta recept?")) return;
-    const { error } = await sb.from("recipes").delete().eq("id", id);
-    if (error) return alert(error.message);
-    $("#recipe-dialog").close();
-    await loadAll();
-    return;
-  }
   const row = {
     name: fd.get("name"),
     body: fd.get("body") || null,
