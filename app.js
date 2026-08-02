@@ -1177,14 +1177,24 @@ function parseQty(text) {
   return Number.isFinite(n) ? n : null;
 }
 
-function formatQty(value) {
+// Vikt skrivs med decimal (107,5 g), mått och styck med bråk (¾ dl, 1 ½ tsk)
+// – "107 ½ g" är inget man skriver i ett recept.
+const DECIMAL_UNITS = new Set(["g", "gram", "hg", "kg"]);
+function formatQty(value, unit) {
   const v = Math.round(value * 100) / 100;
   const whole = Math.floor(v + 1e-9);
   const rest = v - whole;
   if (rest < 1e-9) return String(whole);
-  const frac = Object.entries(FRACTIONS).find(([, f]) => Math.abs(f - rest) < 0.02);
-  if (frac) return (whole ? `${whole} ` : "") + frac[0];
+  if (!DECIMAL_UNITS.has((unit || "").toLowerCase())) {
+    const frac = Object.entries(FRACTIONS).find(([, f]) => Math.abs(f - rest) < 0.02);
+    if (frac) return (whole ? `${whole} ` : "") + frac[0];
+  }
   return v.toFixed(1).replace(".", ",");
+}
+
+// Enheten står efter mängden – även efter ett intervall ("25–30 g").
+function unitAfter(line, index) {
+  return line.slice(index).match(/^\s*(\p{L}+)/u)?.[1] || "";
 }
 
 function insideParens(line, index) {
@@ -1203,17 +1213,18 @@ function scaleLine(line, factor) {
   return line.replace(QTY_RE, (match, from, sep, to, single, offset) => {
     if (done || insideParens(line, offset)) return match;
     if (/^\s*%/.test(line.slice(offset + match.length))) return match;
+    const unit = unitAfter(line, offset + match.length);
     if (single != null) {
       const n = parseQty(single);
       if (n == null) return match;
       done = true;
-      return formatQty(n * factor);
+      return formatQty(n * factor, unit);
     }
     const a = parseQty(from);
     const b = parseQty(to);
     if (a == null || b == null) return match;
     done = true;
-    return `${formatQty(a * factor)}${sep}${formatQty(b * factor)}`;
+    return `${formatQty(a * factor, unit)}${sep}${formatQty(b * factor, unit)}`;
   });
 }
 
