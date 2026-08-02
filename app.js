@@ -1124,6 +1124,9 @@ function renderRecipes() {
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
+function capitalize(s) {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
 $("#recipe-print").addEventListener("click", () => {
   if (!currentRecipe) return;
   const name = currentRecipe.name || "Recept";
@@ -1142,7 +1145,7 @@ $("#recipe-print").addEventListener("click", () => {
 </style></head><body onload="window.print()">
   <h1>🍅 ${escapeHtml(name)}</h1>
   ${sorter.length ? `<p class="sorter">Passar bra med: ${escapeHtml(sorter.join(", "))}</p>` : ""}
-  ${recipeBatch > 1 ? `<p class="sats">${recipeBatch} satser – mängderna i ingredienslistan är omräknade.</p>` : ""}
+  ${recipeBatch !== 1 ? `<p class="sats">${escapeHtml(capitalize(batchPhrase(recipeBatch)))} – mängderna i ingredienslistan är omräknade.</p>` : ""}
   <div class="body">${escapeHtml(body)}</div>
 </body></html>`);
   w.document.close();
@@ -1155,7 +1158,7 @@ function recipeVarietyNames(r) {
 // ---- Satsberäkning ----------------------------------------------------
 // Räknar bara om mängderna i ingredienslistan. Instruktionerna lämnas orörda
 // eftersom koktider, antal burkar o.dyl. inte skalar med satsstorleken.
-const BATCH_SIZES = [1, 2, 3, 4];
+const BATCH_SIZES = [0.5, 1, 2, 3, 4];
 const FRACTIONS = { "½": 1 / 2, "⅓": 1 / 3, "⅔": 2 / 3, "¼": 1 / 4, "¾": 3 / 4, "⅕": 1 / 5, "⅛": 1 / 8 };
 const FRACTION_CHARS = Object.keys(FRACTIONS).join("");
 // "1 ½" måste testas före "1", annars äts heltalet upp separat.
@@ -1237,6 +1240,15 @@ function recipeIsScalable(body) {
   return !!body && scaleRecipeBody(body, 2) !== body;
 }
 
+function batchLabel(n) {
+  if (n === 1) return "1 sats";
+  return n < 1 ? `${formatQty(n)} sats` : `${n} satser`;
+}
+
+function batchPhrase(n) {
+  return n < 1 ? "en halv sats" : `${n} satser`;
+}
+
 function renderRecipeBatch() {
   const scalable = recipeIsScalable(currentRecipe?.body);
   $("#recipe-batch-field").hidden = !scalable;
@@ -1248,7 +1260,7 @@ function renderRecipeBatch() {
       const b = el("button", {
         type: "button",
         className: "batch-btn" + (n === recipeBatch ? " active" : ""),
-        textContent: n === 1 ? "1 sats" : `${n} satser`,
+        textContent: batchLabel(n),
       });
       b.setAttribute("aria-pressed", String(n === recipeBatch));
       b.addEventListener("click", () => {
@@ -1262,7 +1274,7 @@ function renderRecipeBatch() {
   const note = $("#recipe-batch-note");
   note.hidden = recipeBatch === 1;
   note.textContent =
-    `Mängderna nedan är omräknade för ${recipeBatch} satser. ` +
+    `Mängderna nedan är omräknade för ${batchPhrase(recipeBatch)}. ` +
     "Koktider, antal burkar och liknande står kvar som i originalet.";
 
   const body = $("#recipe-dialog-body");
