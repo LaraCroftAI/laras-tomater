@@ -1,0 +1,25 @@
+name: Tester
+
+# Kör testerna för receptens satsberäkning vid varje push och pull request.
+# Testerna läser funktionerna direkt ur app.js, så de fångar om en ändring där
+# får mängderna att räknas om fel.
+#
+# OBS: Vercel deployar oberoende av det här jobbet. Ett rött kryss stoppar
+# alltså inte publiceringen – det syns i commit-listan och måste läsas där.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {} # går även att köra manuellt
+
+jobs:
+  satsberakning:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Kör testerna
+        run: node test/batch.test.mjs
