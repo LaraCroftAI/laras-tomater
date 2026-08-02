@@ -29,6 +29,7 @@ let feedings = [];
 let plantPhotos = [];
 let galleryPhotos = [];
 let currentRecipe = null;
+let recipeBatch = 1;
 
 const authView = $("#auth-view");
 const appView = $("#app-view");
@@ -1126,7 +1127,7 @@ function escapeHtml(s) {
 $("#recipe-print").addEventListener("click", () => {
   if (!currentRecipe) return;
   const name = currentRecipe.name || "Recept";
-  const body = currentRecipe.body || "";
+  const body = scaleRecipeBody(currentRecipe.body || "", recipeBatch);
   const sorter = recipeVarietyNames(currentRecipe);
   const w = window.open("", "_blank", "width=720,height=900");
   if (!w) { alert("Tillåt popup-fönster för att kunna skriva ut."); return; }
@@ -1135,11 +1136,13 @@ $("#recipe-print").addEventListener("click", () => {
   body { font-family: Georgia, "Times New Roman", serif; color: #2a2a2a; max-width: 17cm; margin: 2cm auto; padding: 0 1cm; line-height: 1.5; }
   h1 { font-size: 1.8rem; margin: 0 0 .2rem; }
   .sorter { color: #6b6b6b; font-style: italic; margin: 0 0 1rem; }
+  .sats { color: #6b6b6b; margin: 0 0 1rem; }
   .body { white-space: pre-wrap; font-size: 1.05rem; }
   @media print { body { margin: 1.2cm; } }
 </style></head><body onload="window.print()">
   <h1>🍅 ${escapeHtml(name)}</h1>
   ${sorter.length ? `<p class="sorter">Passar bra med: ${escapeHtml(sorter.join(", "))}</p>` : ""}
+  ${recipeBatch > 1 ? `<p class="sats">${recipeBatch} satser – mängderna i ingredienslistan är omräknade.</p>` : ""}
   <div class="body">${escapeHtml(body)}</div>
 </body></html>`);
   w.document.close();
@@ -1148,9 +1151,129 @@ $("#recipe-print").addEventListener("click", () => {
 function recipeVarietyNames(r) {
   return (r.variety_ids || []).map((id) => varieties.find((v) => v.id === id)?.name).filter(Boolean);
 }
+
+// ---- Satsberäkning ----------------------------------------------------
+// Räknar bara om mängderna i ingredienslistan. Instruktionerna lämnas orörda
+// eftersom koktider, antal burkar o.dyl. inte skalar med satsstorleken.
+const BATCH_SIZES = [1, 2, 3, 4];
+const FRACTIONS = { "½": 1 / 2, "⅓": 1 / 3, "⅔": 2 / 3, "¼": 1 / 4, "¾": 3 / 4, "⅕": 1 / 5, "⅛": 1 / 8 };
+const FRACTION_CHARS = Object.keys(FRACTIONS).join("");
+// "1 ½" måste testas före "1", annars äts heltalet upp separat.
+const NUM = `\\d+(?:[.,]\\d+)?\\s*[${FRACTION_CHARS}]|[${FRACTION_CHARS}]|\\d+(?:[.,]\\d+)?`;
+const QTY_RE = new RegExp(`(${NUM})(\\s*[–—-]\\s*)(${NUM})|(${NUM})`, "g");
+
+function parseQty(text) {
+  const t = text.trim();
+  const frac = t.match(new RegExp(`[${FRACTION_CHARS}]`));
+  if (!frac) {
+    const n = parseFloat(t.replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
+  const whole = t.slice(0, frac.index).trim().replace(",", ".");
+  const n = (whole ? parseFloat(whole) : 0) + FRACTIONS[frac[0]];
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatQty(value) {
+  const v = Math.round(value * 100) / 100;
+  const whole = Math.floor(v + 1e-9);
+  const rest = v - whole;
+  if (rest < 1e-9) return String(whole);
+  const frac = Object.entries(FRACTIONS).find(([, f]) => Math.abs(f - rest) < 0.02);
+  if (frac) return (whole ? `${whole} ` : "") + frac[0];
+  return v.toFixed(1).replace(".", ",");
+}
+
+function insideParens(line, index) {
+  let depth = 0;
+  for (let i = 0; i < index; i++) {
+    if (line[i] === "(") depth++;
+    else if (line[i] === ")") depth = Math.max(0, depth - 1);
+  }
+  return depth > 0;
+}
+
+// Skalar första mängden på raden. Siffror inom parentes ("(12 %)", "(5–7 cm)")
+// och procenttal lämnas som de är – de beskriver något annat än mängden.
+function scaleLine(line, factor) {
+  let done = false;
+  return line.replace(QTY_RE, (match, from, sep, to, single, offset) => {
+    if (done || insideParens(line, offset)) return match;
+    if (/^\s*%/.test(line.slice(offset + match.length))) return match;
+    if (single != null) {
+      const n = parseQty(single);
+      if (n == null) return match;
+      done = true;
+      return formatQty(n * factor);
+    }
+    const a = parseQty(from);
+    const b = parseQty(to);
+    if (a == null || b == null) return match;
+    done = true;
+    return `${formatQty(a * factor)}${sep}${formatQty(b * factor)}`;
+  });
+}
+
+// Ingredienslistan = raderna efter rubriken "Ingredienser" fram till tom rad.
+function ingredientBlock(lines) {
+  const start = lines.findIndex((l) => /^\s*(?:[•*-]\s*)?ingredienser\s*:?\s*$/i.test(l));
+  if (start === -1) return null;
+  let end = start;
+  for (let i = start + 1; i < lines.length && lines[i].trim(); i++) end = i;
+  return end > start ? { start: start + 1, end } : null;
+}
+
+function scaleRecipeBody(body, factor) {
+  if (!body || factor === 1) return body;
+  const lines = body.split("\n");
+  const block = ingredientBlock(lines);
+  if (!block) return body;
+  for (let i = block.start; i <= block.end; i++) lines[i] = scaleLine(lines[i], factor);
+  return lines.join("\n");
+}
+
+// Visa satsväljaren bara när det finns mängder att räkna om.
+function recipeIsScalable(body) {
+  return !!body && scaleRecipeBody(body, 2) !== body;
+}
+
+function renderRecipeBatch() {
+  const scalable = recipeIsScalable(currentRecipe?.body);
+  $("#recipe-batch-field").hidden = !scalable;
+
+  const buttons = $("#recipe-batch-buttons");
+  buttons.replaceChildren();
+  if (scalable) {
+    for (const n of BATCH_SIZES) {
+      const b = el("button", {
+        type: "button",
+        className: "batch-btn" + (n === recipeBatch ? " active" : ""),
+        textContent: n === 1 ? "1 sats" : `${n} satser`,
+      });
+      b.setAttribute("aria-pressed", String(n === recipeBatch));
+      b.addEventListener("click", () => {
+        recipeBatch = n;
+        renderRecipeBatch();
+      });
+      buttons.append(b);
+    }
+  }
+
+  const note = $("#recipe-batch-note");
+  note.hidden = recipeBatch === 1;
+  note.textContent =
+    `Mängderna nedan är omräknade för ${recipeBatch} satser. ` +
+    "Koktider, antal burkar och liknande står kvar som i originalet.";
+
+  const body = $("#recipe-dialog-body");
+  const text = scaleRecipeBody(currentRecipe?.body || "", recipeBatch);
+  body.textContent = text;
+  body.hidden = !text;
+}
 // Läsvy — recept skapas och ändras utanför appen (via Supabase), inte här.
 function openRecipeDialog(r) {
   currentRecipe = r;
+  recipeBatch = 1;
   $("#recipe-dialog-title").textContent = r.name || "Recept";
 
   const dlgImg = $("#recipe-dialog-image");
@@ -1169,9 +1292,7 @@ function openRecipeDialog(r) {
   for (const n of names) chips.append(tag(n, "beige"));
   $("#recipe-variety-field").hidden = names.length === 0;
 
-  const body = $("#recipe-dialog-body");
-  body.textContent = r.body || "";
-  body.hidden = !r.body;
+  renderRecipeBatch();
 
   $("#recipe-dialog").showModal();
 }

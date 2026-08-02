@@ -289,6 +289,19 @@ input:focus, select:focus, textarea:focus {
   margin: 0 0 1rem;
   line-height: 1.55;
 }
+.batch-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.batch-btn { padding: 0.45rem 0.9rem; }
+.batch-btn.active {
+  background: var(--ink);
+  color: var(--card);
+  border-color: var(--ink);
+}
+.batch-btn.active:hover { background: #444; }
+.batch-note { margin: 0.6rem 0 0; }
 .feeding-latest {
   margin: 0;
   font-weight: 600;
