@@ -134,10 +134,9 @@
   <section id="tab-recept" class="tab-panel" hidden>
     <div class="section-head">
       <h2>Recept</h2>
-      <button id="add-recipe-btn" class="primary">+ Recept</button>
     </div>
     <ul id="recipe-list" class="cards"></ul>
-    <p id="recipe-empty" class="msg" hidden>Inga recept ännu. Spara favoriter när skörden är inne.</p>
+    <p id="recipe-empty" class="msg" hidden>Inga recept ännu.</p>
   </section>
 
   <section id="tab-galleri" class="tab-panel" hidden>
@@ -285,22 +284,19 @@
     </form>
   </dialog>
 
+  <!-- Recept är en ren läsvy: innehållet ändras utanför appen (se README/MCP), inte här. -->
   <dialog id="recipe-dialog">
     <form method="dialog" id="recipe-form">
       <img id="recipe-dialog-image" class="recipe-dialog-image" alt="" hidden />
-      <h2>Recept</h2>
-      <input type="hidden" name="id" />
-      <label>Namn<input name="name" required /></label>
-      <div class="field">
+      <h2 id="recipe-dialog-title">Recept</h2>
+      <div class="field" id="recipe-variety-field">
         <span class="field-label">Sorter som passar</span>
         <div id="recipe-variety-chips" class="tags"></div>
-        <select id="recipe-variety-add"></select>
       </div>
-      <label>Recept / instruktioner<textarea name="body" rows="8"></textarea></label>
+      <p id="recipe-dialog-body" class="recipe-body"></p>
       <div class="row end">
-        <button value="cancel" class="ghost">Avbryt</button>
-        <button type="button" class="ghost" id="recipe-print" hidden>🖨️ Skriv ut</button>
-        <button value="save" class="primary">Spara</button>
+        <button value="cancel" class="ghost">Stäng</button>
+        <button type="button" class="primary" id="recipe-print">🖨️ Skriv ut</button>
       </div>
     </form>
   </dialog>

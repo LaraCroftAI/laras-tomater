@@ -284,6 +284,11 @@ input:focus, select:focus, textarea:focus {
   margin-bottom: 1rem;
   display: block;
 }
+.recipe-body {
+  white-space: pre-wrap;
+  margin: 0 0 1rem;
+  line-height: 1.55;
+}
 .feeding-latest {
   margin: 0;
   font-weight: 600;
@@ -330,18 +335,6 @@ input:focus, select:focus, textarea:focus {
 .tag.warn { background: #F6E2C0; color: #8A5A12; }
 .tag.clickable { cursor: pointer; }
 .tag.clickable:hover { filter: brightness(0.95); }
-.chip-x {
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin-left: 0.1rem;
-  cursor: pointer;
-  color: inherit;
-  font-size: 0.8rem;
-  line-height: 1;
-  border-radius: 0;
-}
-.chip-x:hover { background: transparent; color: var(--danger); }
 
 /* CARD META */
 .meta-list {
