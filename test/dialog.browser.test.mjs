@@ -23,7 +23,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const INDEX = new URL("../index.html", import.meta.url);
-const DIALOGS = ["variety-dialog", "planting-dialog", "feeding-dialog", "harvest-dialog", "gallery-dialog"];
+const DIALOGS = [
+  "variety-dialog", "planting-dialog", "feeding-dialog",
+  "harvest-dialog", "quick-harvest-dialog", "gallery-dialog",
+];
 
 // ---------------------------------------------------------------- webbläsare
 function findBrowser() {

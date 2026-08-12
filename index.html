@@ -102,7 +102,8 @@
     <div class="section-head">
       <h2>Skörd</h2>
       <select id="harvest-year-filter" aria-label="Filtrera på år" hidden></select>
-      <button id="add-harvest-btn" class="primary">+ Skörd</button>
+      <button id="add-harvest-btn">+ Skörd</button>
+      <button id="quick-harvest-btn" class="primary">📋 Dagens skörd</button>
     </div>
     <div class="harvest-summary" id="harvest-summary"></div>
 
@@ -268,6 +269,22 @@
         <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
         <button value="delete" class="danger" formnovalidate id="feeding-delete" hidden>Ta bort</button>
         <button value="save" class="primary">Spara</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Snabbregistrering: ett datum, ett viktfält per sort som har plantor i år.
+       Den vanliga skördedialogen finns kvar för att rätta, ta bort och skriva
+       anteckningar. -->
+  <dialog id="quick-harvest-dialog">
+    <form method="dialog" id="quick-harvest-form">
+      <h2>Dagens skörd</h2>
+      <label>Datum<input name="harvested_at" type="date" required /></label>
+      <div id="quick-harvest-rows" class="qh-rows"></div>
+      <p id="quick-harvest-summary" class="msg"></p>
+      <div class="row end">
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="save" class="primary" id="quick-harvest-save">Spara</button>
       </div>
     </form>
   </dialog>

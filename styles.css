@@ -302,6 +302,35 @@ input:focus, select:focus, textarea:focus {
 }
 .batch-btn.active:hover { background: #444; }
 .batch-note { margin: 0.6rem 0 0; }
+
+/* Dagens skörd – listan skrollar för sig så datum och knappar alltid syns */
+.qh-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  /* Utrymme åt skrollisten, annars klipper den enheten "g" i högerkant */
+  scrollbar-gutter: stable;
+  padding-right: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.qh-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+.qh-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qh-unit { color: var(--ink-soft); font-size: 0.9rem; }
+button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
 .feeding-latest {
   margin: 0;
   font-weight: 600;

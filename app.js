@@ -1039,6 +1039,86 @@ function stat(label, value) {
   return wrap;
 }
 $("#add-harvest-btn").addEventListener("click", () => openHarvestDialog(null));
+
+// ---------------- DAGENS SKÖRD ----------------
+// En skörderunda gav tidigare ett dialogvarv per sort. Här fylls i stället flera
+// vikter i på samma datum och sparas i en enda insert.
+
+// Sorter med plantor i årets odling, senast skördade först (de plockas oftast).
+function plantedVarieties() {
+  const planted = new Set(plantings.map((p) => p.variety_id));
+  const lastHarvest = new Map();
+  for (const h of harvests) {
+    const prev = lastHarvest.get(h.variety_id);
+    if (!prev || h.harvested_at > prev) lastHarvest.set(h.variety_id, h.harvested_at);
+  }
+  return varieties
+    .filter((v) => planted.has(v.id))
+    .sort((a, b) => {
+      const la = lastHarvest.get(a.id) || "";
+      const lb = lastHarvest.get(b.id) || "";
+      return lb.localeCompare(la) || a.name.localeCompare(b.name, "sv");
+    });
+}
+
+// Tomma fält hoppas över, liksom nollor och skräp – en skörd på 0 g är ingen skörd.
+function quickHarvestEntries() {
+  const rows = [];
+  for (const input of $$("#quick-harvest-rows input")) {
+    const raw = input.value.trim();
+    if (!raw) continue;
+    const n = Number(raw.replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) continue;
+    rows.push({ variety_id: input.dataset.varietyId, weight_g: Math.round(n) });
+  }
+  return rows;
+}
+
+function updateQuickHarvestSummary() {
+  const rows = quickHarvestEntries();
+  const total = rows.reduce((sum, r) => sum + r.weight_g, 0);
+  $("#quick-harvest-summary").textContent = rows.length
+    ? `${rows.length} ${rows.length === 1 ? "sort" : "sorter"} ifyllda · ${autoWeight(total)}`
+    : "Fyll i vikten för de sorter du plockat.";
+  $("#quick-harvest-save").disabled = rows.length === 0;
+}
+
+function openQuickHarvestDialog() {
+  const form = $("#quick-harvest-form");
+  form.reset();
+  form.elements.harvested_at.value = new Date().toISOString().slice(0, 10);
+
+  const list = $("#quick-harvest-rows");
+  list.replaceChildren();
+  for (const v of plantedVarieties()) {
+    const input = el("input", { type: "number", min: "0", step: "1", inputMode: "numeric", placeholder: "0" });
+    input.dataset.varietyId = v.id;
+    input.setAttribute("aria-label", `Vikt i gram för ${v.name}`);
+    input.addEventListener("input", updateQuickHarvestSummary);
+    list.append(el("div", { className: "qh-row" },
+      el("span", { className: "qh-name", textContent: `${varietyIcon(v)} ${v.name}` }),
+      input,
+      el("span", { className: "qh-unit", textContent: "g" }),
+    ));
+  }
+
+  updateQuickHarvestSummary();
+  $("#quick-harvest-dialog").showModal();
+}
+$("#quick-harvest-btn").addEventListener("click", openQuickHarvestDialog);
+
+$("#quick-harvest-form").addEventListener("submit", async (e) => {
+  if (e.submitter?.value === "cancel") return;
+  e.preventDefault();
+  const entries = quickHarvestEntries();
+  if (!entries.length) return;
+  const harvested_at = e.target.elements.harvested_at.value;
+  const rows = entries.map((r) => ({ ...r, harvested_at, user_id: currentUser.id }));
+  const { error } = await sb.from("harvests").insert(rows);
+  if (error) return alert(error.message);
+  $("#quick-harvest-dialog").close();
+  await loadAll();
+});
 function openHarvestDialog(h) {
   const form = $("#harvest-form");
   form.reset();
