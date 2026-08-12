@@ -41,6 +41,13 @@ function findBrowser() {
   return candidates.find((p) => existsSync(p)) || null;
 }
 
+// Nodes inbyggda WebSocket-klient finns från Node 22. Utan den kraschar testet
+// långt senare med ett kryptiskt "WebSocket is not defined".
+if (typeof WebSocket === "undefined") {
+  console.log(`Node 22 eller senare krävs för det här testet (kör ${process.version}).`);
+  process.exit(1);
+}
+
 const browser = findBrowser();
 if (!browser) {
   console.log("Ingen Edge/Chrome hittades.");

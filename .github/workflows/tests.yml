@@ -20,7 +20,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # 22 eller senare krävs: dialogtestet använder Nodes inbyggda
+          # WebSocket-klient, som inte finns i Node 20.
+          node-version: "24"
       - name: Satsberäkning
         run: node test/batch.test.mjs
 
