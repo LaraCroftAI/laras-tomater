@@ -13,8 +13,9 @@
 // av sortdialogen utan formnovalidate MÅSTE fastna – annars bevisar testet inget,
 // och då larmar det.
 //
-// Hittas ingen webbläsare hoppas testet över med exitkod 0. Det körs därför inte i
-// CI i dag (tests.yml kör bara batch-testerna).
+// Hittas ingen webbläsare hoppas testet över med exitkod 0. I CI sätts
+// REQUIRE_BROWSER=1, och då blir en saknad webbläsare i stället ett fel – annars
+// hade jobbet kunnat lysa grönt utan att ha testat någonting.
 
 import { spawn } from "node:child_process";
 import { writeFileSync, mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
@@ -42,8 +43,15 @@ function findBrowser() {
 
 const browser = findBrowser();
 if (!browser) {
-  console.log("Ingen Edge/Chrome hittades – hoppar över webbläsartestet.");
-  console.log("Peka ut en webbläsare med miljövariabeln BROWSER för att köra det.");
+  console.log("Ingen Edge/Chrome hittades.");
+  console.log("Peka ut en webbläsare med miljövariabeln BROWSER för att köra testet.");
+  // I CI sätts REQUIRE_BROWSER=1 så att en saknad webbläsare blir ett fel i
+  // stället för ett tyst godkänt test – annars vore CI grön utan att ha testat något.
+  if (process.env.REQUIRE_BROWSER) {
+    console.log("REQUIRE_BROWSER är satt: det här räknas som ett fel.");
+    process.exit(1);
+  }
+  console.log("Hoppar över webbläsartestet.");
   process.exit(0);
 }
 
@@ -90,6 +98,8 @@ const proc = spawn(browser, [
   "--disable-gpu",
   "--no-first-run",
   "--no-default-browser-check",
+  "--no-sandbox", // krävs ofta på byggservrar; ofarligt här (headless, lokal fil)
+  "--disable-dev-shm-usage",
   "--remote-debugging-port=0", // 0 = låt webbläsaren välja ledig port
   `--user-data-dir=${profile}`,
   "about:blank",
