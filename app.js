@@ -389,6 +389,7 @@ function tag(label, kind = "outline") {
 function varietyIcon(v) {
   const n = (v.name || "").toLowerCase();
   if (v.category === "Chili") return "🌶️";
+  if (v.category === "Gurka" || n.includes("gurka")) return "🥒";
   if (n.includes("blåbär")) return "🫐";
   if (n.includes("vinbär")) return "🍇";
   return "🍅";
@@ -863,9 +864,10 @@ function weightText(grams, unit) {
 function autoWeight(grams) { return weightText(grams, pickUnit(grams)); }
 function harvestWord(n) { return n === 1 ? "skörd" : "skördar"; }
 
-// Tomat eller övrigt (bär/chili)? Samma logik som varietyIcon: allt som visas med 🍅
-// räknas som tomat, resten (🌶️ chili, 🫐 blåbär, 🍇 vinbär) som övrigt. Bär utan
-// igenkänt namn fångas dessutom på kategorin. Ingen/okänd sort räknas som tomat.
+// Tomat eller övrigt (bär/chili/gurka)? Samma logik som varietyIcon: allt som visas
+// med 🍅 räknas som tomat, resten (🌶️ chili, 🫐 blåbär, 🍇 vinbär, 🥒 gurka) som
+// övrigt. Bär utan igenkänt namn fångas dessutom på kategorin. Ingen/okänd sort
+// räknas som tomat.
 function isTomatoHarvest(varietyId) {
   const v = varieties.find((x) => x.id === varietyId);
   if (!v) return true;
