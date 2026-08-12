@@ -113,20 +113,37 @@ const proc = spawn(browser, [
   "--remote-debugging-port=0", // 0 = låt webbläsaren välja ledig port
   `--user-data-dir=${profile}`,
   "about:blank",
-], { stdio: "ignore" });
+], { stdio: ["ignore", "ignore", "pipe"] });
+
+// Byggservrar kan vara långsamma – en för snål väntan gav slumpmässigt röda
+// körningar. Vi väntar länge, men avbryter direkt om webbläsaren dör, och tar
+// med dess felutskrift så att orsaken syns i loggen i stället för en gissning.
+let browserExit = null;
+let browserStderr = "";
+proc.stderr.on("data", (chunk) => { browserStderr += chunk.toString(); });
+proc.on("exit", (code) => { browserExit = code ?? "okänd"; });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const STARTUP_TIMEOUT_MS = 60_000;
 async function devtoolsPort() {
   const portFile = join(profile, "DevToolsActivePort");
-  for (let i = 0; i < 80; i++) {
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS;
+  while (Date.now() < deadline) {
     if (existsSync(portFile)) {
       const port = readFileSync(portFile, "utf8").split("\n")[0].trim();
       if (port) return port;
     }
+    if (browserExit !== null) {
+      throw new Error(`Webbläsaren avslutades direkt (kod ${browserExit}).` +
+        (browserStderr.trim() ? `\n${browserStderr.trim()}` : ""));
+    }
     await sleep(250);
   }
-  throw new Error("Webbläsaren startade aldrig felsökningsporten");
+  throw new Error(
+    `Webbläsaren startade inte inom ${STARTUP_TIMEOUT_MS / 1000} s.` +
+    (browserStderr.trim() ? `\n${browserStderr.trim()}` : "")
+  );
 }
 
 let nextId = 1;
