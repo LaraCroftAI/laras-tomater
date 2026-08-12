@@ -208,8 +208,12 @@
       <label>Beskärning<textarea name="pruning_notes" rows="5" placeholder="Fritext om beskärning – tid, hur, m.m."></textarea></label>
       <label>Anteckningar<textarea name="notes" rows="3"></textarea></label>
       <div class="row end">
-        <button value="cancel" class="ghost">Avbryt</button>
-        <button value="delete" class="danger" id="variety-delete" hidden>Ta bort</button>
+        <!-- formnovalidate på Avbryt och Ta bort i alla dialoger: utan det blockerar
+             webbläsarens validering av tomma obligatoriska fält även dessa knappar,
+             submit-händelsen skickas aldrig, och dialogen går inte att stänga. Bara
+             Spara ska kräva ifyllda fält. -->
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="delete" class="danger" formnovalidate id="variety-delete" hidden>Ta bort</button>
         <button value="save" id="variety-save" class="primary">Spara</button>
       </div>
     </form>
@@ -246,8 +250,8 @@
         <p id="planting-photo-hint" class="msg" hidden></p>
       </div>
       <div class="row end">
-        <button value="cancel" class="ghost">Avbryt</button>
-        <button value="delete" class="danger" id="planting-delete" hidden>Ta bort</button>
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="delete" class="danger" formnovalidate id="planting-delete" hidden>Ta bort</button>
         <button value="save" class="primary">Spara</button>
       </div>
     </form>
@@ -261,8 +265,8 @@
       <label>Datum<input name="fed_on" type="date" required /></label>
       <label>Anteckning (t.ex. typ av näring)<input name="notes" /></label>
       <div class="row end">
-        <button value="cancel" class="ghost">Avbryt</button>
-        <button value="delete" class="danger" id="feeding-delete" hidden>Ta bort</button>
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="delete" class="danger" formnovalidate id="feeding-delete" hidden>Ta bort</button>
         <button value="save" class="primary">Spara</button>
       </div>
     </form>
@@ -279,8 +283,8 @@
       <label>Vikt (g)<input name="weight_g" type="number" min="0" /></label>
       <label>Anteckningar<textarea name="notes" rows="2"></textarea></label>
       <div class="row end">
-        <button value="cancel" class="ghost">Avbryt</button>
-        <button value="delete" class="danger" id="harvest-delete" hidden>Ta bort</button>
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="delete" class="danger" formnovalidate id="harvest-delete" hidden>Ta bort</button>
         <button value="save" class="primary">Spara</button>
       </div>
     </form>
@@ -302,7 +306,7 @@
       </div>
       <p id="recipe-dialog-body" class="recipe-body"></p>
       <div class="row end">
-        <button value="cancel" class="ghost">Stäng</button>
+        <button value="cancel" class="ghost" formnovalidate>Stäng</button>
         <button type="button" class="primary" id="recipe-print">🖨️ Skriv ut</button>
       </div>
     </form>
@@ -315,8 +319,8 @@
       <input type="hidden" name="id" />
       <label>Bildtext<input name="caption" placeholder="t.ex. Växthuset i juli" /></label>
       <div class="row end">
-        <button value="cancel" class="ghost">Avbryt</button>
-        <button value="delete" class="danger" id="gallery-delete">Ta bort</button>
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="delete" class="danger" formnovalidate id="gallery-delete">Ta bort</button>
         <button value="save" class="primary">Spara</button>
       </div>
     </form>
