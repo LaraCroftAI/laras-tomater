@@ -63,8 +63,98 @@ async function showApp() {
   authView.hidden = true;
   recoveryView.hidden = true;
   appView.hidden = false;
+  const { data: admin } = await sb.rpc("is_admin");
+  $("#admin-btn").hidden = !admin;
   await loadAll();
 }
+
+// ---------------- INBJUDNA (admin) ----------------
+async function renderInviteList() {
+  const list = $("#admin-list");
+  const { data, error } = await sb.rpc("list_allowed");
+  list.replaceChildren();
+  if (error) {
+    list.append(el("li", { className: "msg error", textContent: error.message }));
+    return;
+  }
+  const mine = (currentUser?.email || "").toLowerCase();
+  for (const rad of data || []) {
+    const row = el("li", { className: "invite-row" });
+    row.append(el("span", { className: "invite-mail", textContent: rad.email }));
+    if (rad.is_admin) row.append(tag("admin", "beige"));
+    if (rad.email.toLowerCase() !== mine) {
+      const x = el("button", { type: "button", className: "danger", textContent: "Ta bort" });
+      x.addEventListener("click", async () => {
+        if (!confirm(`Ta bort åtkomsten för ${rad.email}?\n\nDeras konto och data finns kvar, men de kommer inte in i appen.`)) return;
+        const { error: rmErr } = await sb.rpc("remove_allowed", { p_email: rad.email });
+        $("#admin-msg").textContent = rmErr ? rmErr.message : `${rad.email} har inte längre åtkomst.`;
+        await renderInviteList();
+      });
+      row.append(x);
+    }
+    list.append(row);
+  }
+}
+
+$("#admin-btn").addEventListener("click", async () => {
+  $("#admin-form").reset();
+  $("#admin-msg").textContent = "";
+  await renderInviteList();
+  $("#admin-dialog").showModal();
+});
+
+$("#admin-add").addEventListener("click", async () => {
+  const field = $("#admin-form").elements.email;
+  const value = field.value.trim();
+  if (!value) return;
+  const { data, error } = await sb.rpc("add_allowed", { p_email: value });
+  $("#admin-msg").textContent = error
+    ? error.message
+    : `${data} är inbjuden. Be dem skapa ett konto med just den adressen.`;
+  if (!error) field.value = "";
+  await renderInviteList();
+});
+
+// ---------------- OM DINA UPPGIFTER ----------------
+function openPrivacyDialog() {
+  $("#privacy-msg").textContent = "";
+  // Radera-knappen visas bara för den som är inloggad – på inloggningsskärmen
+  // finns inget konto att radera.
+  $("#delete-account-btn").hidden = !currentUser;
+  $("#privacy-dialog").showModal();
+}
+$("#privacy-btn").addEventListener("click", openPrivacyDialog);
+$("#privacy-btn-auth").addEventListener("click", openPrivacyDialog);
+
+$("#delete-account-btn").addEventListener("click", async () => {
+  if (!confirm("Radera ditt konto och all din data?\n\nSorter, plantor, skördar, växtnäring, recept och foton tas bort. Det går inte att ångra.")) return;
+  if (prompt('Skriv RADERA för att bekräfta.')?.trim().toUpperCase() !== "RADERA") return;
+
+  const msg = $("#privacy-msg");
+  msg.textContent = "Raderar …";
+
+  // Filerna först, medan inloggningen fortfarande gäller. Databasen kan inte
+  // radera dem åt oss – Supabase blockerar DELETE direkt mot lagringstabellerna –
+  // så går det inte här avbryter vi hellre än att lämna föräldralösa filer kvar.
+  const paths = [...plantPhotos.map((p) => p.path), ...galleryPhotos.map((p) => p.path)].filter(Boolean);
+  if (paths.length) {
+    const { error: filErr } = await sb.storage.from("plant-photos").remove(paths);
+    if (filErr) {
+      msg.textContent = `Kunde inte ta bort dina foton: ${filErr.message}. Ingenting har raderats.`;
+      msg.classList.add("error");
+      return;
+    }
+  }
+
+  const { error } = await sb.rpc("delete_my_account");
+  if (error) {
+    msg.textContent = error.message;
+    msg.classList.add("error");
+    return;
+  }
+  await sb.auth.signOut();
+  location.reload();
+});
 
 authForm.addEventListener("submit", (e) => e.preventDefault());
 authForm.querySelector('[data-action="login"]').addEventListener("click", async () => {
@@ -158,7 +248,7 @@ $("#export-btn").addEventListener("click", async () => {
   btn.classList.add("busy"); // visar förloppstexten även på mobilen
   try {
     const data = {
-      app: "Evas odling",
+      app: "Odlarnörden",
       exported_at: new Date().toISOString(),
       varieties,
       plantings,
@@ -168,7 +258,7 @@ $("#export-btn").addEventListener("click", async () => {
       plant_photos: plantPhotos.map(({ signedUrl, ...r }) => r),
       garden_photos: galleryPhotos.map(({ signedUrl, ...r }) => r),
     };
-    const files = { "evas-odling.json": new TextEncoder().encode(JSON.stringify(data, null, 2)) };
+    const files = { "odlarnorden.json": new TextEncoder().encode(JSON.stringify(data, null, 2)) };
 
     // Hämta ner de faktiska bildfilerna ur storage och lägg i zip:en.
     const allPhotos = [
@@ -198,7 +288,7 @@ $("#export-btn").addEventListener("click", async () => {
     const zipped = await new Promise((resolve, reject) =>
       zip(files, { level: 6 }, (err, out) => (err ? reject(err) : resolve(out)))
     );
-    triggerDownload(new Blob([zipped], { type: "application/zip" }), `evas-odling-${new Date().toISOString().slice(0, 10)}.zip`);
+    triggerDownload(new Blob([zipped], { type: "application/zip" }), `odlarnorden-${new Date().toISOString().slice(0, 10)}.zip`);
     if (failed) alert(`${failed} av ${allPhotos.length} foton kunde inte laddas ner och saknas i zip-filen.`);
   } catch (err) {
     alert("Kunde inte skapa exporten: " + (err.message || err));

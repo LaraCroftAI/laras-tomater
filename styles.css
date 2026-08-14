@@ -121,7 +121,7 @@ input:focus, select:focus, textarea:focus {
   color: var(--card);
   border-color: var(--ink);
 }
-.auth-card .linkish {
+.linkish {
   border: none;
   background: none;
   border-radius: 0;
@@ -130,8 +130,8 @@ input:focus, select:focus, textarea:focus {
   color: var(--ink-soft);
   text-decoration: underline;
 }
-.auth-card .linkish:hover { background: none; color: var(--ink); }
-.auth-card .linkish:disabled { opacity: 0.6; cursor: default; text-decoration: none; }
+.linkish:hover { background: none; color: var(--ink); }
+.linkish:disabled { opacity: 0.6; cursor: default; text-decoration: none; }
 
 /* APP TOPBAR */
 #app-view {
@@ -302,6 +302,43 @@ input:focus, select:focus, textarea:focus {
 }
 .batch-btn.active:hover { background: #444; }
 .batch-note { margin: 0.6rem 0 0; }
+
+/* Inbjudna + integritet */
+.app-footer {
+  padding: 1.5rem 1rem 2.5rem;
+  text-align: center;
+}
+.invite-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.invite-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.invite-mail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invite-row button {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+}
+.privacy-text p {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
 
 /* Dagens skörd – listan skrollar för sig så datum och knappar alltid syns */
 .qh-rows {

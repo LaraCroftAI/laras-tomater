@@ -97,7 +97,7 @@ window.avbrytStanger = function (id) {
 };
 <\/script></body></html>`;
 
-const dir = mkdtempSync(join(tmpdir(), "evas-dialogtest-"));
+const dir = mkdtempSync(join(tmpdir(), "odlarnorden-dialogtest-"));
 const pagePath = join(dir, "page.html");
 const profile = join(dir, "profile");
 writeFileSync(pagePath, page, "utf8");
