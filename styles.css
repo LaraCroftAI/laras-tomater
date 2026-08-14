@@ -103,7 +103,13 @@ input:focus, select:focus, textarea:focus {
   max-width: 360px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.auth-card h1 { margin-bottom: 1.25rem; font-size: 1.75rem; }
+.auth-card h1 { margin-bottom: 0.35rem; font-size: 1.75rem; }
+.auth-sub {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
 .auth-card label {
   display: block;
   margin-bottom: 0.75rem;
