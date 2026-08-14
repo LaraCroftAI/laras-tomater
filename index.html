@@ -29,12 +29,13 @@
 
 <section id="recovery-view" hidden>
   <div class="auth-card">
-    <h1>Nytt lösenord</h1>
+    <h1 id="recovery-title">Nytt lösenord</h1>
+    <p id="recovery-intro" class="auth-sub" hidden></p>
     <form id="recovery-form">
       <label>Nytt lösenord<input type="password" id="new-password" required minlength="6" autocomplete="new-password" /></label>
       <label>Upprepa lösenordet<input type="password" id="new-password-2" required minlength="6" autocomplete="new-password" /></label>
       <div class="row">
-        <button type="submit" class="primary">Spara lösenord</button>
+        <button type="submit" class="primary" id="recovery-submit">Spara lösenord</button>
       </div>
       <p id="recovery-msg" class="msg"></p>
     </form>

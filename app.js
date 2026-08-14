@@ -7,7 +7,11 @@ const SEASON = "2026";
 
 // Läs adressfältet INNAN klienten skapas – supabase-js städar bort taggen efter sig.
 const urlParams = new URLSearchParams(location.hash.slice(1));
-const isRecoveryLink = urlParams.get("type") === "recovery";
+const linkType = urlParams.get("type");
+// Inbjudan och lösenordsåterställning landar båda med en giltig session men utan
+// att användaren satt något lösenord. Samma skärm, olika ord.
+const isInviteLink = linkType === "invite";
+const isRecoveryLink = linkType === "recovery" || isInviteLink;
 const urlAuthError = urlParams.get("error_description") || urlParams.get("error");
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -43,7 +47,17 @@ const authMsg = $("#auth-msg");
 let recoveryMode = isRecoveryLink;
 
 function showAuth() { authView.hidden = false; appView.hidden = true; recoveryView.hidden = true; }
-function showRecovery() { recoveryView.hidden = false; authView.hidden = true; appView.hidden = true; }
+function showRecovery() {
+  if (isInviteLink) {
+    $("#recovery-title").textContent = "Välkommen till Odlarnörden";
+    $("#recovery-intro").textContent = "Välj ett lösenord, så är du igång. Din odling blir bara din.";
+    $("#recovery-intro").hidden = false;
+    $("#recovery-submit").textContent = "Kom igång";
+  }
+  recoveryView.hidden = false;
+  authView.hidden = true;
+  appView.hidden = true;
+}
 function authError(text) {
   authMsg.textContent = text;
   authMsg.classList.add("error");
@@ -105,13 +119,35 @@ $("#admin-btn").addEventListener("click", async () => {
 
 $("#admin-add").addEventListener("click", async () => {
   const field = $("#admin-form").elements.email;
+  const knapp = $("#admin-add");
+  const msg = $("#admin-msg");
   const value = field.value.trim();
   if (!value) return;
-  const { data, error } = await sb.rpc("add_allowed", { p_email: value });
-  $("#admin-msg").textContent = error
-    ? error.message
-    : `${data} är inbjuden. Be dem skapa ett konto med just den adressen.`;
-  if (!error) field.value = "";
+
+  knapp.disabled = true;
+  msg.classList.remove("error");
+  msg.textContent = "Skickar inbjudan …";
+
+  // Utskicket sker i serverfunktionen "bjud-in" – adminnyckeln som krävs för att
+  // skicka mejl får inte finnas här i webbläsaren.
+  const { data, error } = await sb.functions.invoke("bjud-in", {
+    body: { email: value, redirectTo: location.origin + location.pathname },
+  });
+  knapp.disabled = false;
+
+  if (error) {
+    // Funktionen svarar med förklarande text i kroppen även vid felkod.
+    let text = error.message;
+    try { text = (await error.context?.json())?.fel || text; } catch { /* behåll originalet */ }
+    msg.textContent = text;
+    msg.classList.add("error");
+    await renderInviteList();
+    return;
+  }
+
+  msg.textContent = data?.meddelande || "Inbjudan skickad.";
+  if (data?.mejlSkickat === false) msg.classList.add("error");
+  field.value = "";
   await renderInviteList();
 });
 
@@ -1596,7 +1632,9 @@ function populateVarietySelects() {
     showAuth();
     authError(
       /expired|invalid/i.test(urlAuthError)
-        ? "Återställningslänken har gått ut eller är redan använd. Be om en ny med \"Glömt lösenordet?\"."
+        ? (isInviteLink
+            ? "Inbjudningslänken har gått ut eller är redan använd. Be den som bjöd in dig om en ny."
+            : "Återställningslänken har gått ut eller är redan använd. Be om en ny med \"Glömt lösenordet?\".")
         : urlAuthError
     );
     return;
@@ -1607,7 +1645,9 @@ function populateVarietySelects() {
     recoveryMode = false;
     cleanUrl();
     showAuth();
-    authError("Återställningslänken gick inte att använda. Be om en ny med \"Glömt lösenordet?\".");
+    authError(isInviteLink
+      ? "Inbjudningslänken gick inte att använda. Be den som bjöd in dig om en ny."
+      : "Återställningslänken gick inte att använda. Be om en ny med \"Glömt lösenordet?\".");
     return;
   }
 
