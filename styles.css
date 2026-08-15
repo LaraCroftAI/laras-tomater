@@ -139,6 +139,29 @@ input:focus, select:focus, textarea:focus {
 .linkish:hover { background: none; color: var(--ink); }
 .linkish:disabled { opacity: 0.6; cursor: default; text-decoration: none; }
 
+/* Visa/dölj lösenord – lätt att tro att man knappat rätt när man skrivit fel */
+.pw-field {
+  position: relative;
+  display: block;
+}
+/* Plats åt knappen så att långa lösenord inte hamnar under den */
+.pw-field input { padding-right: 3.9rem; }
+.pw-toggle {
+  position: absolute;
+  right: 0.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  border: none;
+  background: none;
+  border-radius: 0;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  text-decoration: underline;
+}
+.pw-toggle:hover { background: none; color: var(--ink); }
+
 /* APP TOPBAR */
 #app-view {
   max-width: 1200px;

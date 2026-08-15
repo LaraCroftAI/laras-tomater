@@ -26,6 +26,9 @@ jobs:
       - name: Satsberäkning
         run: node test/batch.test.mjs
 
+      - name: Markup
+        run: node test/markup.test.mjs
+
       # REQUIRE_BROWSER gör att jobbet failar om ingen webbläsare hittas, i stället
       # för att testet hoppar över sig självt och lyser grönt utan att ha kört.
       - name: Dialoger i webbläsare

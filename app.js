@@ -213,6 +213,21 @@ authForm.querySelector('[data-action="signup"]').addEventListener("click", async
 });
 $("#logout").addEventListener("click", async () => { await sb.auth.signOut(); });
 
+// ---------------- VISA/DÖLJ LÖSENORD ----------------
+// Gäller alla tre fälten: inloggningen och de två i "Nytt lösenord". Man ser
+// annars inte att man knappat fel förrän inloggningen nekas.
+for (const knapp of $$(".pw-toggle")) {
+  knapp.addEventListener("click", () => {
+    const falt = knapp.parentElement.querySelector("input");
+    const visasNu = falt.type === "text";
+    falt.type = visasNu ? "password" : "text";
+    knapp.textContent = visasNu ? "Visa" : "Dölj";
+    knapp.setAttribute("aria-label", visasNu ? "Visa lösenordet" : "Dölj lösenordet");
+    // Tillbaka till fältet, annars försvinner tangentbordet på mobilen.
+    falt.focus();
+  });
+}
+
 // ---------------- GLÖMT LÖSENORD ----------------
 $("#forgot-btn").addEventListener("click", async () => {
   const btn = $("#forgot-btn");

@@ -15,7 +15,12 @@
     <p class="auth-sub">Håll ordning på sorter, plantor och skörd — din odling är bara din.</p>
     <form id="auth-form">
       <label>E-post<input type="email" id="email" required autocomplete="email" /></label>
-      <label>Lösenord<input type="password" id="password" required minlength="6" autocomplete="current-password" /></label>
+      <label>Lösenord
+        <span class="pw-field">
+          <input type="password" id="password" required minlength="6" autocomplete="current-password" />
+          <button type="button" class="pw-toggle" aria-label="Visa lösenordet">Visa</button>
+        </span>
+      </label>
       <div class="row">
         <button type="submit" data-action="login">Logga in</button>
         <button type="button" data-action="signup" class="ghost">Skapa konto</button>
@@ -32,8 +37,18 @@
     <h1 id="recovery-title">Nytt lösenord</h1>
     <p id="recovery-intro" class="auth-sub" hidden></p>
     <form id="recovery-form">
-      <label>Nytt lösenord<input type="password" id="new-password" required minlength="6" autocomplete="new-password" /></label>
-      <label>Upprepa lösenordet<input type="password" id="new-password-2" required minlength="6" autocomplete="new-password" /></label>
+      <label>Nytt lösenord
+        <span class="pw-field">
+          <input type="password" id="new-password" required minlength="6" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" aria-label="Visa lösenordet">Visa</button>
+        </span>
+      </label>
+      <label>Upprepa lösenordet
+        <span class="pw-field">
+          <input type="password" id="new-password-2" required minlength="6" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" aria-label="Visa lösenordet">Visa</button>
+        </span>
+      </label>
       <div class="row">
         <button type="submit" class="primary" id="recovery-submit">Spara lösenord</button>
       </div>
