@@ -83,7 +83,9 @@
   </nav>
 
   <section id="tab-sorter" class="tab-panel">
-    <div class="stats">
+    <!-- Döljs när biblioteket är tomt: sex nollor skulle annars trycka ner
+         förklaringen under vikningen på mobilen. -->
+    <div class="stats" id="sorter-stats">
       <div class="stat"><span class="stat-label">Plantor totalt</span><span class="stat-value" id="stat-total">0</span></div>
       <div class="stat"><span class="stat-label">I kruka</span><span class="stat-value" id="stat-pot">0</span></div>
       <div class="stat"><span class="stat-label">I växthus</span><span class="stat-value" id="stat-greenhouse">0</span></div>

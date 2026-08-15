@@ -615,6 +615,10 @@ function renderLibrary(filter = "") {
   $("#library-empty").hidden = !tomt;
   $("#library-search").hidden = tomt;
   $("#sorter-heading").hidden = tomt;
+  // Utan sorter kan man inte ha plantor heller, så rutorna visar garanterat
+  // bara nollor. På mobilen staplas de sex på varandra och skjuter ner
+  // förklaringen under vikningen.
+  $("#sorter-stats").hidden = tomt;
   $("#starter-btn").hidden = tomt || starterVarieties.length === 0;
   $("#empty-starter-btn").hidden = starterVarieties.length === 0;
   if (tomt) return;
