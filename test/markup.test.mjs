@@ -44,5 +44,22 @@ for (const field of pwFields) {
   check(`${id}: knappen har aria-label`, /aria-label="/.test(toggle[0]), true);
 }
 
+// ------------------------------------------- dialoger som nås utloggad ----
+// #app-view har attributet hidden när man inte är inloggad, och regeln
+// [hidden] { display: none !important } tar bort hela trädet ur renderingen.
+// En dialog därinne kan därför öppnas med showModal() utan att synas – ytan
+// blir 0x0 och för användaren "händer ingenting". Dialoger som går att nå
+// från inloggningsskärmen måste ligga utanför.
+console.log("\n--- Dialoger som nås utloggad ---");
+const mainStart = html.indexOf('<main id="app-view"');
+const mainEnd = html.indexOf("</main>", mainStart);
+const appView = html.slice(mainStart, mainEnd);
+
+check("#app-view finns och har hidden", /<main id="app-view"[^>]*\shidden/.test(html), true);
+for (const id of ["privacy-dialog"]) {
+  check(`#${id} ligger utanför #app-view`, appView.includes(`<dialog id="${id}">`), false);
+  check(`#${id} finns i dokumentet`, html.includes(`<dialog id="${id}">`), true);
+}
+
 console.log(fails === 0 ? "\nALLA TESTER OK" : `\n${fails} TESTER MISSLYCKADES`);
 process.exit(fails === 0 ? 0 : 1);

@@ -349,24 +349,6 @@
     </form>
   </dialog>
 
-  <dialog id="privacy-dialog">
-    <form method="dialog" id="privacy-form">
-      <h2>Om dina uppgifter</h2>
-      <div class="privacy-text">
-        <p><strong>Vad som sparas.</strong> Din e-postadress, och det du själv skriver in: sorter, plantor, skördar, växtnäring, recept och foton.</p>
-        <p><strong>Vem som ser det.</strong> Bara du. Din odling, skörd, växtnäring och dina foton är privata och skyddas av regler i databasen. Undantaget är recepten, som är gemensamma och läsbara för alla inbjudna.</p>
-        <p><strong>Var det ligger.</strong> Databas och foton hos Supabase med servrar i Frankrike. Själva sidan ligger hos Vercel. Inget säljs vidare, och ingen reklam eller spårning finns i appen.</p>
-        <p><strong>Vad du kan göra.</strong> Ladda ner allt du lagt in med Exportera-knappen, när du vill. Du kan också radera ditt konto och all din data direkt här nedan — det går inte att ångra.</p>
-        <p><strong>Ansvarig.</strong> Appen drivs privat av Lara Croft. Frågor: klevas.ai@outlook.com</p>
-      </div>
-      <p id="privacy-msg" class="msg"></p>
-      <div class="row end">
-        <button value="cancel" class="ghost" formnovalidate>Stäng</button>
-        <button type="button" class="danger" id="delete-account-btn" hidden>Radera mitt konto</button>
-      </div>
-    </form>
-  </dialog>
-
   <!-- Snabbregistrering: ett datum, ett viktfält per sort som har plantor i år.
        Den vanliga skördedialogen finns kvar för att rätta, ta bort och skriva
        anteckningar. -->
@@ -437,6 +419,29 @@
     </form>
   </dialog>
 </main>
+
+<!-- MÅSTE ligga utanför #app-view. Den nås även från inloggningsskärmen, och
+     utloggad har #app-view attributet hidden – regeln [hidden] { display: none
+     !important } tar då bort hela trädet ur renderingen. showModal() sätter
+     visserligen open, men dialogen får ytan 0x0 och syns inte alls.
+     Övriga dialoger nås bara inloggad och kan därför ligga kvar i #app-view. -->
+<dialog id="privacy-dialog">
+  <form method="dialog" id="privacy-form">
+    <h2>Om dina uppgifter</h2>
+    <div class="privacy-text">
+      <p><strong>Vad som sparas.</strong> Din e-postadress, och det du själv skriver in: sorter, plantor, skördar, växtnäring, recept och foton.</p>
+      <p><strong>Vem som ser det.</strong> Bara du. Din odling, skörd, växtnäring och dina foton är privata och skyddas av regler i databasen. Undantaget är recepten, som är gemensamma och läsbara för alla inbjudna.</p>
+      <p><strong>Var det ligger.</strong> Databas och foton hos Supabase med servrar i Frankrike. Själva sidan ligger hos Vercel. Inget säljs vidare, och ingen reklam eller spårning finns i appen.</p>
+      <p><strong>Vad du kan göra.</strong> Ladda ner allt du lagt in med Exportera-knappen, när du vill. Du kan också radera ditt konto och all din data direkt här nedan — det går inte att ångra.</p>
+      <p><strong>Ansvarig.</strong> Appen drivs privat av Lara Croft. Frågor: klevas.ai@outlook.com</p>
+    </div>
+    <p id="privacy-msg" class="msg"></p>
+    <div class="row end">
+      <button value="cancel" class="ghost" formnovalidate>Stäng</button>
+      <button type="button" class="danger" id="delete-account-btn" hidden>Radera mitt konto</button>
+    </div>
+  </form>
+</dialog>
 
 <script type="module" src="app.js"></script>
 </body>
