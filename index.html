@@ -80,6 +80,20 @@
     <div class="section-head">
       <h2 id="sorter-heading">Sorter</h2>
       <input type="search" id="library-search" placeholder="Sök sort…" />
+      <!-- Dold när det inte finns några förlagor att hämta (t.ex. för admin
+           själv, vars egna sorter är förlagorna). -->
+      <button id="starter-btn" class="ghost" hidden title="Hämta färdiga sorter till ditt bibliotek"><span aria-hidden="true">📥</span><span class="btn-label">Hämta sorter</span></button>
+    </div>
+
+    <!-- Nya användare möter annars en helt tom flik utan att förstå att sorten
+         måste finnas innan man kan registrera en planta. -->
+    <div id="library-empty" class="empty-library" hidden>
+      <p class="empty-title">Ditt bibliotek är tomt</p>
+      <p>Här samlar du sorterna du odlar — namn, växtsätt, höjd och skötsel. En sort måste finnas här innan du kan registrera plantor av den under Odling 2026.</p>
+      <div class="row">
+        <button type="button" class="primary" id="empty-starter-btn" hidden>📥 Hämta färdiga sorter</button>
+        <button type="button" class="ghost" id="empty-new-btn">+ Skriv in en egen</button>
+      </div>
     </div>
 
     <ul id="variety-list" class="cards"></ul>
@@ -295,6 +309,25 @@
       <div class="row end">
         <button value="cancel" class="ghost" formnovalidate>Stäng</button>
         <button type="button" class="primary" id="admin-add">Bjud in</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Startpaket: kopiera admins sorter till sitt eget bibliotek. Kopian är
+       frikopplad från originalet – se startpaket.sql för varför. -->
+  <dialog id="starter-dialog">
+    <form method="dialog" id="starter-form">
+      <h2>Hämta sorter</h2>
+      <p class="msg">Färdiga sorter att utgå från. Du får en egen kopia som du kan ändra eller ta bort — originalet påverkas inte. Smak och anteckningar är tomma; dem fyller du i själv.</p>
+      <div class="row starter-tools">
+        <button type="button" class="ghost" id="starter-all">Markera alla</button>
+        <button type="button" class="ghost" id="starter-none">Avmarkera alla</button>
+      </div>
+      <div id="starter-rows" class="starter-rows"></div>
+      <p id="starter-msg" class="msg"></p>
+      <div class="row end">
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button type="button" class="primary" id="starter-save">Lägg till</button>
       </div>
     </form>
   </dialog>

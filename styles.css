@@ -370,6 +370,66 @@ input:focus, select:focus, textarea:focus {
   white-space: nowrap;
 }
 .qh-unit { color: var(--ink-soft); font-size: 0.9rem; }
+
+/* Tomt sortbibliotek – nya användare möter annars en blank flik */
+.empty-library {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 34rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.empty-library p { margin: 0 0 0.75rem; color: var(--ink-soft); }
+.empty-library .empty-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+.empty-library .row { justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+
+/* Hämta sorter – listan skrollar för sig så knapparna alltid syns */
+.starter-tools {
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.starter-tools button { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+.starter-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 0.5rem;
+}
+.starter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.starter-row:last-child { border-bottom: none; }
+.starter-row input { flex: none; width: 1.1rem; height: 1.1rem; }
+.starter-icon { flex: none; }
+.starter-text { flex: 1; min-width: 0; }
+.starter-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Radbryter hellre än klipper: på mobil får "Bifftomat · Stjälk · 100-125 cm ·
+   Växthus" inte plats på en rad, och placeringen är det man vill läsa. */
+.starter-facts {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.starter-had { opacity: 0.55; cursor: default; }
 button:disabled {
   opacity: 0.45;
   pointer-events: none;

@@ -26,6 +26,7 @@ const el = (tag, props = {}, ...children) => {
 
 let currentUser = null;
 let varieties = [];
+let starterVarieties = [];
 let plantings = [];
 let harvests = [];
 let recipes = [];
@@ -364,13 +365,20 @@ $$(".tab").forEach((btn) => {
 
 // ---------------- LOAD ----------------
 async function loadAll() {
-  await Promise.all([loadVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings(), loadPlantPhotos(), loadGalleryPhotos()]);
+  await Promise.all([loadVarieties(), loadStarterVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings(), loadPlantPhotos(), loadGalleryPhotos()]);
   renderAll();
 }
 async function loadVarieties() {
   const { data, error } = await sb.from("tomato_varieties").select("*").order("name");
   if (error) return console.error(error);
   varieties = data;
+}
+// Förlagor att hämta in i det egna biblioteket. Går via RPC eftersom RLS döljer
+// andras sorter. Ett fel här får inte stoppa appen – då visas bara ingen knapp.
+async function loadStarterVarieties() {
+  const { data, error } = await sb.rpc("list_starter_varieties");
+  if (error) { starterVarieties = []; return console.error(error); }
+  starterVarieties = data || [];
 }
 async function loadPlantings() {
   const { data, error } = await sb
@@ -585,6 +593,17 @@ function metaRow(icon, text) {
 function renderLibrary(filter = "") {
   const list = $("#variety-list");
   list.replaceChildren();
+
+  // Tomt bibliotek: förklara vad fliken är till för i stället för att visa en
+  // tom lista med ett sökfält över.
+  const tomt = varieties.length === 0;
+  $("#library-empty").hidden = !tomt;
+  $("#library-search").hidden = tomt;
+  $("#sorter-heading").hidden = tomt;
+  $("#starter-btn").hidden = tomt || starterVarieties.length === 0;
+  $("#empty-starter-btn").hidden = starterVarieties.length === 0;
+  if (tomt) return;
+
   const f = filter.toLowerCase();
   const filtered = f
     ? varieties.filter((v) => `${v.name} ${v.category || ""} ${v.growth_type || ""} ${(v.use_tags || []).join(" ")} ${v.flavor || ""} ${v.notes || ""}`.toLowerCase().includes(f))
@@ -657,6 +676,98 @@ $("#variety-form").addEventListener("submit", async (e) => {
   if (error) return alert(error.message);
   $("#variety-dialog").close();
   await loadAll();
+});
+
+// ---------------- HÄMTA SORTER (startpaket) ----------------
+// Biblioteket är privat per användare, så en ny användare ser noll sorter och
+// kan inte registrera en planta förrän hen skapat en. Här hämtar man i stället
+// kopior av admins sorter. Kopior, inte kopplingar: user_tomatoes.variety_id är
+// ON DELETE CASCADE, så en delad rad hade låtit den som raderar en sort radera
+// allas plantor av den.
+function starterRow(s) {
+  const row = el("label", { className: "starter-row" });
+  const box = el("input", { type: "checkbox", value: s.id });
+  box.disabled = s.redan_i_biblioteket;
+  row.append(box);
+
+  // Ikonen ligger utanför texten så att namn och faktarad börjar i samma kant.
+  row.append(el("span", { className: "starter-icon", textContent: varietyIcon(s) }));
+
+  const text = el("span", { className: "starter-text" });
+  text.append(el("span", { className: "starter-name", textContent: s.name }));
+  const facts = [s.category, s.growth_type, heightText(s), s.default_location].filter(Boolean);
+  if (facts.length) text.append(el("span", { className: "starter-facts", textContent: facts.join(" · ") }));
+  row.append(text);
+
+  if (s.redan_i_biblioteket) {
+    row.classList.add("starter-had");
+    row.append(tag("Har redan", "beige"));
+  }
+  return row;
+}
+
+function starterBoxes() {
+  return [...$$("#starter-rows input[type=checkbox]")].filter((b) => !b.disabled);
+}
+
+function updateStarterSummary() {
+  const boxes = starterBoxes();
+  const valda = boxes.filter((b) => b.checked).length;
+  $("#starter-save").disabled = valda === 0;
+  $("#starter-msg").classList.remove("error");
+  if (!boxes.length) {
+    $("#starter-msg").textContent = starterVarieties.length
+      ? "Du har redan alla sorter som finns att hämta."
+      : "Det finns inga sorter att hämta just nu.";
+    return;
+  }
+  $("#starter-msg").textContent = valda
+    ? `${valda} ${valda === 1 ? "sort" : "sorter"} vald${valda === 1 ? "" : "a"}.`
+    : "Kryssa i de sorter du vill lägga till.";
+}
+
+function openStarterDialog() {
+  const list = $("#starter-rows");
+  list.replaceChildren();
+  for (const s of starterVarieties) list.append(starterRow(s));
+  updateStarterSummary();
+  $("#starter-dialog").showModal();
+}
+$("#starter-btn").addEventListener("click", openStarterDialog);
+$("#empty-starter-btn").addEventListener("click", openStarterDialog);
+$("#empty-new-btn").addEventListener("click", () => openVarietyDialog(null));
+
+$("#starter-rows").addEventListener("change", updateStarterSummary);
+$("#starter-all").addEventListener("click", () => {
+  for (const b of starterBoxes()) b.checked = true;
+  updateStarterSummary();
+});
+$("#starter-none").addEventListener("click", () => {
+  for (const b of starterBoxes()) b.checked = false;
+  updateStarterSummary();
+});
+
+$("#starter-save").addEventListener("click", async () => {
+  const ids = starterBoxes().filter((b) => b.checked).map((b) => b.value);
+  if (!ids.length) return;
+  const knapp = $("#starter-save");
+  const msg = $("#starter-msg");
+  knapp.disabled = true;
+  msg.classList.remove("error");
+  msg.textContent = "Lägger till …";
+
+  const { data, error } = await sb.rpc("copy_starter_varieties", { p_ids: ids });
+  if (error) {
+    msg.textContent = error.message;
+    msg.classList.add("error");
+    knapp.disabled = false;
+    return;
+  }
+  $("#starter-dialog").close();
+  await loadAll();
+  // Sorter som redan fanns hoppas över i databasen, så antalet kan bli lägre
+  // än vad man kryssade i.
+  alert(data === 1 ? "1 sort tillagd i ditt bibliotek." : `${data} sorter tillagda i ditt bibliotek.`);
 });
 
 // ---------------- PLANTINGS (Odling 2026) ----------------
