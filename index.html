@@ -63,7 +63,7 @@
       <span class="brand-mark" aria-hidden="true">🌱</span>
       <div>
         <h1>Odlarnörden</h1>
-        <p class="brand-sub">Säsong 2026</p>
+        <p class="brand-sub" id="brand-season">Säsong</p>
       </div>
     </div>
     <div class="topbar-actions">
@@ -76,7 +76,7 @@
 
   <nav class="tabs">
     <button class="tab active" data-tab="sorter">Sorter</button>
-    <button class="tab" data-tab="odling">Odling 2026</button>
+    <button class="tab" data-tab="odling">Odling</button>
     <button class="tab" data-tab="skord">Skörd</button>
     <button class="tab" data-tab="recept">Recept</button>
     <button class="tab" data-tab="galleri">Galleri</button>
@@ -106,7 +106,7 @@
          måste finnas innan man kan registrera en planta. -->
     <div id="library-empty" class="empty-library" hidden>
       <p class="empty-title">Ditt bibliotek är tomt</p>
-      <p>Här samlar du sorterna du odlar — namn, växtsätt, höjd och skötsel. En sort måste finnas här innan du kan registrera plantor av den under Odling 2026.</p>
+      <p>Här samlar du sorterna du odlar — namn, växtsätt, höjd och skötsel. En sort måste finnas här innan du kan registrera plantor av den under Odling.</p>
       <div class="row">
         <button type="button" class="primary" id="empty-starter-btn" hidden>📥 Hämta färdiga sorter</button>
         <button type="button" class="ghost" id="empty-new-btn">+ Skriv in en egen</button>
@@ -118,7 +118,9 @@
 
   <section id="tab-odling" class="tab-panel" hidden>
     <div class="section-head">
-      <h2>Odling 2026</h2>
+      <!-- Rubriken sätts av populateSeasonFilter() till "Odling <år>". -->
+      <h2 id="odling-heading">Odling</h2>
+      <select id="season-filter" aria-label="Välj odlingsår"></select>
       <input type="search" id="planting-search" placeholder="Filtrera namn eller placering…" />
       <select id="planting-location-filter" aria-label="Filtrera på placering"></select>
       <button id="add-planting-btn" class="primary">+ Plantor</button>

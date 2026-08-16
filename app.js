@@ -3,7 +3,13 @@ import { zip } from "https://esm.sh/fflate@0.8.2";
 
 const SUPABASE_URL = "https://rciaqovopajrkdtuhkdo.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_F1wn2SYtPbldAoCV2j9f9w_-2ZqSf8C";
-const SEASON = "2026";
+// Säsongen var hårdkodad till "2026" fram till 2026-08-16. Nu väljs den i
+// Odling-fliken, så ett nytt odlingsår kan startas utan kodändring och gamla
+// år går att bläddra tillbaka till. Plantor och växtnäring hör till en säsong;
+// skörd gör det inte (den har ett eget datum och ett eget årsfilter).
+const INNEVARANDE_AR = String(new Date().getFullYear());
+const NY_SASONG = "__ny__";
+const SASONG_NYCKEL = "odlarnorden.sasong";
 
 // Läs adressfältet INNAN klienten skapas – supabase-js städar bort taggen efter sig.
 const urlParams = new URLSearchParams(location.hash.slice(1));
@@ -25,6 +31,8 @@ const el = (tag, props = {}, ...children) => {
 };
 
 let currentUser = null;
+let season = INNEVARANDE_AR;   // vald säsong
+let seasons = [];              // säsonger som har data, nyast först
 let varieties = [];
 let starterVarieties = [];
 let plantings = [];
@@ -380,9 +388,36 @@ $$(".tab").forEach((btn) => {
 
 // ---------------- LOAD ----------------
 async function loadAll() {
+  // Måste gå först: plantor och växtnäring hämtas filtrerade på vald säsong.
+  await loadSeasons();
   await Promise.all([loadVarieties(), loadStarterVarieties(), loadPlantings(), loadHarvests(), loadRecipes(), loadFeedings(), loadPlantPhotos(), loadGalleryPhotos()]);
   renderAll();
 }
+
+// Vilka säsonger finns det data för? Plantor och växtnäring är de enda
+// tabellerna med säsongskolumn.
+async function loadSeasons() {
+  const [p, f] = await Promise.all([
+    sb.from("user_tomatoes").select("season"),
+    sb.from("feedings").select("season"),
+  ]);
+  const funna = new Set([...(p.data || []), ...(f.data || [])].map((r) => r.season).filter(Boolean));
+  seasons = [...funna].sort().reverse();
+  season = valjSasong(seasons, localStorage.getItem(SASONG_NYCKEL), INNEVARANDE_AR);
+}
+
+// ---- Val av säsong -----------------------------------------------------
+// Ren funktion, utan DOM och lagring, så regeln går att testa. Se
+// test/season.test.mjs (klipper ut blocket mellan markörerna).
+function valjSasong(tillgangliga, sparad, innevarande) {
+  // Ett sparat val gäller bara om året fortfarande finns – eller är i år, som
+  // man alltid får börja på även innan det finns data.
+  if (sparad && (tillgangliga.includes(sparad) || sparad === innevarande)) return sparad;
+  // Annars senaste året MED data, hellre än ett tomt innevarande år. Öppnar man
+  // appen i januari ska det inte se ut som att allt försvunnit.
+  return tillgangliga[0] || innevarande;
+}
+// ---- slut val av säsong ------------------------------------------------
 async function loadVarieties() {
   const { data, error } = await sb.from("tomato_varieties").select("*").order("name");
   if (error) return console.error(error);
@@ -399,7 +434,7 @@ async function loadPlantings() {
   const { data, error } = await sb
     .from("user_tomatoes")
     .select("*")
-    .eq("season", SEASON)
+    .eq("season", season)
     .order("created_at", { ascending: false });
   if (error) return console.error(error);
   plantings = data;
@@ -418,7 +453,7 @@ async function loadFeedings() {
   const { data, error } = await sb
     .from("feedings")
     .select("*")
-    .eq("season", SEASON)
+    .eq("season", season)
     .order("fed_on", { ascending: false });
   if (error) return console.error(error);
   feedings = data;
@@ -494,6 +529,7 @@ async function deletePlantPhoto(ph) {
 function renderAll() {
   renderStats();
   renderLibrary();
+  populateSeasonFilter();
   populatePlantingLocationFilter();
   renderPlantings();
   renderFeedings();
@@ -789,7 +825,41 @@ $("#starter-save").addEventListener("click", async () => {
   alert(data === 1 ? "1 sort tillagd i ditt bibliotek." : `${data} sorter tillagda i ditt bibliotek.`);
 });
 
-// ---------------- PLANTINGS (Odling 2026) ----------------
+// ---------------- SÄSONG ----------------
+// Listan innehåller alla år med data, plus innevarande år och det valda året
+// (ett nyss påbörjat år har ju ingen data än).
+function populateSeasonFilter() {
+  const sel = $("#season-filter");
+  const alla = [...new Set([...seasons, INNEVARANDE_AR, season])].sort().reverse();
+  sel.replaceChildren();
+  for (const s of alla) sel.append(el("option", { value: s, textContent: s }));
+  sel.append(el("option", { value: NY_SASONG, textContent: "Ny säsong…" }));
+  sel.value = season;
+  // Året står redan i väljaren bredvid och i topbaren – en tredje gång i
+  // rubriken är bara brus.
+  $("#brand-season").textContent = `Säsong ${season}`;
+}
+
+async function bytSasong(nyttAr) {
+  season = nyttAr;
+  localStorage.setItem(SASONG_NYCKEL, season);
+  await Promise.all([loadPlantings(), loadFeedings()]);
+  renderAll();
+}
+
+$("#season-filter").addEventListener("change", async (e) => {
+  if (e.target.value !== NY_SASONG) return bytSasong(e.target.value);
+
+  const svar = prompt("Vilket odlingsår vill du börja på?", String(Number(INNEVARANDE_AR) + 1));
+  const ar = (svar || "").trim();
+  if (!/^\d{4}$/.test(ar)) {
+    e.target.value = season; // avbrutet eller obegripligt svar – ändra ingenting
+    return;
+  }
+  await bytSasong(ar);
+});
+
+// ---------------- PLANTINGS (Odling) ----------------
 function plantingCard(p) {
   const v = varieties.find((x) => x.id === p.variety_id);
   const card = el("li", { className: "card" });
@@ -958,7 +1028,7 @@ $("#planting-form").addEventListener("submit", async (e) => {
     planted_date: fd.get("planted_date") || null,
     pruned_on: fd.get("pruned_on") || null,
     notes: fd.get("notes") || null,
-    season: SEASON,
+    season,
   };
   let error;
   if (id) {
@@ -1052,7 +1122,7 @@ $("#feeding-form").addEventListener("submit", async (e) => {
     location: fd.get("location"),
     fed_on: fd.get("fed_on"),
     notes: fd.get("notes") || null,
-    season: SEASON,
+    season,
   };
   let error;
   if (id) {
