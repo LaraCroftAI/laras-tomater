@@ -68,6 +68,19 @@ check("procenttal lämnas", scaleLine("• 1 ½ dl ättiksprit (12 %)", 2), "•
 check("rad utan siffror lämnas", scaleLine("Atamon till burkarna (valfritt)", 4), "Atamon till burkarna (valfritt)");
 check("siffra sent på raden hittas", scaleLine("Rivet skal och saft från 1 citron", 2), "Rivet skal och saft från 2 citron");
 
+// Tusentalsmellanslag. Skrivs så i Word och gav tyst fel svar: "1 300 g"
+// dubblades till "2 300 g" i stället för 2 600 g, eftersom bara ettan matchades.
+group("Tusental skrivna med mellanslag");
+check("1 300 g dubblas", scaleLine("1 300 g Black Sea Man", 2), "2600 g Black Sea Man");
+check("1 300 g halveras", scaleLine("1 300 g Black Sea Man", 0.5), "650 g Black Sea Man");
+check("1 300 g tredubblas", scaleLine("1 300 g Black Sea Man", 3), "3900 g Black Sea Man");
+check("hårt blanksteg räknas också", scaleLine("1\u00A0300 g tomater", 2), "2600 g tomater");
+check("två grupper", scaleLine("1 200 300 g", 2), "2400600 g");
+// Måste INTE tolkas som tusental – annars blir "1 gul lök" fel.
+check("ental följt av ord påverkas inte", scaleLine("1 gul lök", 2), "2 gul lök");
+check("siffra följd av tvåsiffrigt tal", scaleLine("1 30 g", 2), "2 30 g");
+check("siffra följd av fyrsiffrigt tal", scaleLine("1 3000 g", 2), "2 3000 g");
+
 // ------------------------------------------------------------ hela recepten
 // Texterna nedan speglar recepten som ligger i databasen. Ändras ett recept
 // där behöver motsvarande text här följa med.

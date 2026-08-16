@@ -1781,12 +1781,21 @@ function recipeVarietyNames(r) {
 const BATCH_SIZES = [0.5, 1, 2, 3, 4];
 const FRACTIONS = { "½": 1 / 2, "⅓": 1 / 3, "⅔": 2 / 3, "¼": 1 / 4, "¾": 3 / 4, "⅕": 1 / 5, "⅛": 1 / 8 };
 const FRACTION_CHARS = Object.keys(FRACTIONS).join("");
+// "1 300" (svenskt tusentalsmellanslag) måste testas FÖRST, annars matchas bara
+// "1" och 1 300 g blir 2 300 g vid dubbel sats i stället för 2 600 g.
+// Kräver exakt tregrupper efter mellanslaget, så "1 gul lök" inte påverkas.
+// Mellanslagen skrivs som koder: vanligt, hårt (U+00A0) och smalt hårt
+// (U+202F) – Word använder de hårda. (?!\d) hindrar att "1 300" plockas ur
+// "1 3000", vilket annars gav 26000 i stället för 6000.
+const BLANKSTEG = " \\u00A0\\u202F";
+const TUSENTAL = `\\d{1,3}(?:[${BLANKSTEG}]\\d{3})+(?!\\d)`;
 // "1 ½" måste testas före "1", annars äts heltalet upp separat.
-const NUM = `\\d+(?:[.,]\\d+)?\\s*[${FRACTION_CHARS}]|[${FRACTION_CHARS}]|\\d+(?:[.,]\\d+)?`;
+const NUM = `${TUSENTAL}|\\d+(?:[.,]\\d+)?\\s*[${FRACTION_CHARS}]|[${FRACTION_CHARS}]|\\d+(?:[.,]\\d+)?`;
 const QTY_RE = new RegExp(`(${NUM})(\\s*[–—-]\\s*)(${NUM})|(${NUM})`, "g");
 
 function parseQty(text) {
-  const t = text.trim();
+  // Ta bort tusentalsmellanslagen före tolkningen.
+  const t = text.trim().replace(/(\d)[ \u00A0\u202F](?=\d{3}(?!\d))/g, "$1");
   const frac = t.match(new RegExp(`[${FRACTION_CHARS}]`));
   if (!frac) {
     const n = parseFloat(t.replace(",", "."));
