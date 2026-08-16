@@ -1950,21 +1950,47 @@ function openRecipeDialog(r) {
 }
 
 // ---------------- GALLERY (Växthusgalleri) ----------------
+// Galleriet visar ALLA uppladdade foton: både de fristående (garden_photos)
+// och de som hör till en planta (plant_photos). Plantfotona fanns tidigare
+// bara inne på plantan, vilket gjorde att de flesta bilder inte syntes här.
+function allaFoton() {
+  return [
+    ...galleryPhotos.map((p) => ({ ...p, kalla: "galleri" })),
+    ...plantPhotos.map((p) => ({ ...p, kalla: "planta" })),
+  ].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+}
+
+// Vilken planta hör fotot till? Plantlistan är säsongsfiltrerad, så för ett
+// foto från en tidigare säsong går namnet inte att slå upp – då visas inget.
+function fotoPlanta(ph) {
+  if (ph.kalla !== "planta") return null;
+  const p = plantings.find((x) => x.id === ph.tomato_id);
+  if (!p) return null;
+  const v = varieties.find((x) => x.id === p.variety_id);
+  const namn = v ? `${varietyIcon(v)} ${v.name}` : "🌱 Planta";
+  return p.location ? `${namn} · ${p.location}` : namn;
+}
+
 function galleryCard(ph) {
   const card = el("li", { className: "gallery-item" });
-  card.append(el("img", { src: ph.signedUrl || "", alt: ph.caption || "Växthusfoto", loading: "lazy" }));
+  card.append(el("img", { src: ph.signedUrl || "", alt: ph.caption || fotoPlanta(ph) || "Foto", loading: "lazy" }));
   const overlay = el("div", { className: "gallery-overlay" });
   if (ph.caption) overlay.append(el("span", { className: "gallery-caption-text", textContent: ph.caption }));
+  const planta = fotoPlanta(ph);
+  if (planta) overlay.append(el("span", { className: "gallery-plant", textContent: planta }));
   overlay.append(el("span", { className: "gallery-date", textContent: photoDateLabel(ph.created_at) }));
   card.append(overlay);
   card.addEventListener("click", () => openGalleryDialog(ph));
   return card;
 }
+
 function renderGallery() {
   const list = $("#gallery-list");
   list.replaceChildren();
-  $("#gallery-empty").hidden = galleryPhotos.length > 0;
-  for (const ph of galleryPhotos) list.append(galleryCard(ph));
+  const foton = allaFoton();
+  $("#gallery-empty").hidden = foton.length > 0;
+  $("#gallery-heading").textContent = foton.length ? `Alla foton · ${foton.length} st` : "Alla foton";
+  for (const ph of foton) list.append(galleryCard(ph));
 }
 $("#gallery-photo-input").addEventListener("change", async (e) => {
   const file = e.target.files?.[0];
@@ -1991,7 +2017,14 @@ $("#gallery-photo-input").addEventListener("change", async (e) => {
     label.classList.remove("busy");
   }
 });
+// Vilket foto dialogen visar. Behövs för att veta vilken tabell som ska
+// uppdateras – galleri- och plantfoton ligger i olika tabeller.
+let oppetFoto = null;
+
 function openGalleryDialog(ph) {
+  oppetFoto = ph;
+  const planta = fotoPlanta(ph);
+  $("#gallery-dialog-title").textContent = planta ? `Foto · ${planta}` : "Foto";
   const form = $("#gallery-form");
   form.reset();
   const img = $("#gallery-dialog-image");
@@ -2012,23 +2045,36 @@ $("#gallery-form").addEventListener("submit", async (e) => {
   if (action === "cancel") return;
   e.preventDefault();
   const fd = new FormData(e.target);
-  const id = fd.get("id");
-  const ph = galleryPhotos.find((p) => p.id === id);
+  const ph = oppetFoto;
+  if (!ph) return;
+  // Plantfoton och fristående foton ligger i olika tabeller.
+  const tabell = ph.kalla === "planta" ? "plant_photos" : "garden_photos";
+
+  // Efter en ändring måste båda listorna läsas om, annars ligger den gamla
+  // versionen kvar i den lista fotot inte kom ifrån.
+  const laddaOm = async () => {
+    await Promise.all([loadGalleryPhotos(), loadPlantPhotos()]);
+    renderGallery();
+    renderPlantings();
+  };
+
   if (action === "delete") {
-    if (!confirm("Ta bort detta foto?")) return;
-    if (ph) await sb.storage.from("plant-photos").remove([ph.path]);
-    const { error } = await sb.from("garden_photos").delete().eq("id", id);
+    const varning = ph.kalla === "planta"
+      ? "Ta bort detta foto?\n\nDet försvinner även från plantan under Odling."
+      : "Ta bort detta foto?";
+    if (!confirm(varning)) return;
+    await sb.storage.from("plant-photos").remove([ph.path]);
+    const { error } = await sb.from(tabell).delete().eq("id", ph.id);
     if (error) return alert(error.message);
     $("#gallery-dialog").close();
-    await loadGalleryPhotos();
-    renderGallery();
+    await laddaOm();
     return;
   }
-  const { error } = await sb.from("garden_photos").update({ caption: fd.get("caption") || null }).eq("id", id);
+
+  const { error } = await sb.from(tabell).update({ caption: fd.get("caption") || null }).eq("id", ph.id);
   if (error) return alert(error.message);
   $("#gallery-dialog").close();
-  await loadGalleryPhotos();
-  renderGallery();
+  await laddaOm();
 });
 
 // ---------------- SELECTS ----------------

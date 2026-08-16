@@ -202,14 +202,14 @@
 
   <section id="tab-galleri" class="tab-panel" hidden>
     <div class="section-head">
-      <h2>Växthusgalleri</h2>
+      <h2 id="gallery-heading">Alla foton</h2>
       <label id="gallery-add-label" class="photo-add">
         <span id="gallery-add-text">📷 Lägg till foto</span>
         <input type="file" id="gallery-photo-input" accept="image/*" hidden />
       </label>
     </div>
     <ul id="gallery-list" class="gallery"></ul>
-    <p id="gallery-empty" class="msg" hidden>Inga foton än. Lägg till bilder från växthuset och odlingen med knappen ovan.</p>
+    <p id="gallery-empty" class="msg" hidden>Inga foton än. Bilder du lägger till här, och foton du sätter på enskilda plantor under Odling, samlas båda i galleriet.</p>
   </section>
 
   <footer class="app-footer">
@@ -460,7 +460,7 @@
   <dialog id="gallery-dialog">
     <form method="dialog" id="gallery-form">
       <img id="gallery-dialog-image" class="recipe-dialog-image" alt="" hidden />
-      <h2>Foto</h2>
+      <h2 id="gallery-dialog-title">Foto</h2>
       <input type="hidden" name="id" />
       <label>Bildtext<input name="caption" placeholder="t.ex. Växthuset i juli" /></label>
       <div class="row end">
