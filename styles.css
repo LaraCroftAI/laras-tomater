@@ -782,6 +782,29 @@ dialog .row.gap > * { flex: 1; }
 }
 .chart-head { margin-bottom: 1.1rem; }
 .chart-head h3 { font-size: 1rem; }
+.chart-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+/* Månad/Vecka – två små knappar som hör ihop */
+.chart-scale { display: flex; gap: 0.25rem; }
+.scale-btn {
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 0.2rem 0.7rem;
+  font-size: 0.8rem;
+}
+.scale-btn:hover { background: var(--bg); color: var(--ink); }
+.scale-btn.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--card);
+}
 .chart-sub {
   margin: 0.2rem 0 0;
   font-size: 0.82rem;

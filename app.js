@@ -1303,8 +1303,120 @@ function renderHarvests() {
 
 // ---------------- HARVEST CHARTS ----------------
 const MONTHS_SV = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const SKALA_NYCKEL = "odlarnorden.diagramskala";
+let chartScale = localStorage.getItem(SKALA_NYCKEL) === "vecka" ? "vecka" : "manad";
+
+// ---- Tidsindelning för skördediagrammet --------------------------------
+// Skörden pågår bara några veckor (2026: 12 juli–15 augusti), så per månad
+// blir det ett par staplar. Veckoläget delar samma data på ISO-veckor.
+// Rena funktioner utan DOM – se test/vecka.test.mjs.
+
+// ISO-vecka: veckan tillhör det år där dess TORSDAG ligger. Det är därför
+// 1 januari kan höra till vecka 52 eller 53 föregående år.
+function isoVecka(datum) {
+  const d = new Date(Date.UTC(datum.getUTCFullYear(), datum.getUTCMonth(), datum.getUTCDate()));
+  const dagNr = (d.getUTCDay() + 6) % 7;              // mån=0 … sön=6
+  d.setUTCDate(d.getUTCDate() - dagNr + 3);           // hoppa till torsdagen
+  const ar = d.getUTCFullYear();
+  const forstaTorsdag = new Date(Date.UTC(ar, 0, 4)); // 4 jan ligger alltid i vecka 1
+  const fDagNr = (forstaTorsdag.getUTCDay() + 6) % 7;
+  forstaTorsdag.setUTCDate(forstaTorsdag.getUTCDate() - fDagNr + 3);
+  return { ar, vecka: 1 + Math.round((d - forstaTorsdag) / 604800000) };
+}
+
+// Måndagen i datumets vecka, som "YYYY-MM-DD".
+function veckansMandag(iso) {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+function datumKort(d) {
+  return `${d.getUTCDate()} ${MONTHS_SV[d.getUTCMonth()]}`;
+}
+
+function manadsHinkar(rows) {
+  const per = new Map();
+  for (const h of rows) {
+    if (!h.harvested_at) continue;
+    const key = h.harvested_at.slice(0, 7);
+    const cur = per.get(key) || { grams: 0, count: 0 };
+    cur.grams += h.weight_g || 0;
+    cur.count++;
+    per.set(key, cur);
+  }
+  const keys = [...per.keys()].sort();
+  if (!keys.length) return [];
+
+  const flerAr = keys[0].slice(0, 4) !== keys[keys.length - 1].slice(0, 4);
+  const ut = [];
+  let [y, m] = keys[0].split("-").map(Number);
+  const [slutY, slutM] = keys[keys.length - 1].split("-").map(Number);
+  // Fyll ut månader utan skörd så tidsaxeln blir jämn.
+  while (y < slutY || (y === slutY && m <= slutM)) {
+    const v = per.get(`${y}-${String(m).padStart(2, "0")}`) || { grams: 0, count: 0 };
+    // Årtal på x-axeln bara när diagrammet spänner över flera år.
+    const arSuffix = flerAr && (m === 1 || ut.length === 0) ? ` -${String(y).slice(2)}` : "";
+    ut.push({ ...v, label: MONTHS_SV[m - 1] + arSuffix, full: `${MONTHS_SV[m - 1]} ${y}` });
+    if (++m > 12) { m = 1; y++; }
+  }
+  return ut;
+}
+
+function veckoHinkar(rows) {
+  const per = new Map();   // nyckel: måndagens datum
+  for (const h of rows) {
+    if (!h.harvested_at) continue;
+    const key = veckansMandag(h.harvested_at);
+    const cur = per.get(key) || { grams: 0, count: 0 };
+    cur.grams += h.weight_g || 0;
+    cur.count++;
+    per.set(key, cur);
+  }
+  const keys = [...per.keys()].sort();
+  if (!keys.length) return [];
+
+  const ut = [];
+  let d = new Date(keys[0] + "T00:00:00Z");
+  const slut = new Date(keys[keys.length - 1] + "T00:00:00Z");
+  while (d <= slut) {
+    const v = per.get(d.toISOString().slice(0, 10)) || { grams: 0, count: 0 };
+    const { ar, vecka } = isoVecka(d);
+    const sondag = new Date(d.getTime() + 6 * 86400000);
+    ut.push({
+      ...v,
+      label: `v${vecka}`,
+      full: `v. ${vecka} ${ar} (${datumKort(d)}–${datumKort(sondag)})`,
+    });
+    d = new Date(d.getTime() + 7 * 86400000);
+  }
+  return ut;
+}
+
+function harvestHinkar(rows, skala) {
+  return skala === "vecka" ? veckoHinkar(rows) : manadsHinkar(rows);
+}
+
+// Med många staplar hinner x-etiketterna inte få plats – visa var n:te.
+function etikettSteg(antal) {
+  return Math.ceil(antal / 8) || 1;
+}
+// ---- slut tidsindelning -------------------------------------------------
+
+for (const knapp of $$(".scale-btn")) {
+  knapp.addEventListener("click", () => {
+    chartScale = knapp.dataset.scale;
+    localStorage.setItem(SKALA_NYCKEL, chartScale);
+    renderHarvests();
+  });
+}
 
 function renderHarvestCharts(rows) {
+  for (const knapp of $$(".scale-btn")) {
+    const vald = knapp.dataset.scale === chartScale;
+    knapp.classList.toggle("active", vald);
+    knapp.setAttribute("aria-pressed", String(vald));
+  }
   const monthCols = renderMonthChart(rows);
   const varietyRows = renderVarietyChart(rows);
   // Ett ensamt streck är inget diagram — visa först när det finns något att jämföra.
@@ -1319,27 +1431,8 @@ function renderMonthChart(rows) {
   const chart = $("#month-chart");
   chart.replaceChildren();
 
-  const byMonth = new Map();
-  for (const h of rows) {
-    if (!h.harvested_at) continue;
-    const key = h.harvested_at.slice(0, 7);
-    const cur = byMonth.get(key) || { grams: 0, count: 0 };
-    cur.grams += h.weight_g || 0;
-    cur.count++;
-    byMonth.set(key, cur);
-  }
-  const keys = [...byMonth.keys()].sort();
-  if (!keys.length) return 0;
-
-  // Fyll ut månader utan skörd så tidsaxeln blir jämn.
-  const months = [];
-  let [y, m] = keys[0].split("-").map(Number);
-  const [endY, endM] = keys[keys.length - 1].split("-").map(Number);
-  while (y < endY || (y === endY && m <= endM)) {
-    const key = `${y}-${String(m).padStart(2, "0")}`;
-    months.push({ y, m, ...(byMonth.get(key) || { grams: 0, count: 0 }) });
-    if (++m > 12) { m = 1; y++; }
-  }
+  const months = harvestHinkar(rows, chartScale);
+  $("#month-title").textContent = chartScale === "vecka" ? "Skörd per vecka" : "Skörd per månad";
   if (months.length < 2) return months.length;
 
   const max = Math.max(...months.map((a) => a.grams), 1);
@@ -1362,13 +1455,13 @@ function renderMonthChart(rows) {
   caption.textContent = defaultCaption;
 
   const last = months[months.length - 1];
-  const spansYears = months[0].y !== last.y;
-  for (const a of months) {
+  const steg = etikettSteg(months.length);
+  months.forEach((a, i) => {
     const label = autoWeight(a.grams);
-    const full = `${MONTHS_SV[a.m - 1]} ${a.y}: ${label} · ${a.count} ${harvestWord(a.count)}`;
+    const full = `${a.full}: ${label} · ${a.count} ${harvestWord(a.count)}`;
     const btn = el("button", { type: "button", className: "cm-btn" });
     btn.setAttribute("aria-label", full);
-    // Bara toppen och den senaste månaden får en siffra – resten läses av på skalan eller vid klick.
+    // Bara toppen och den sista stapeln får en siffra – resten läses av på skalan eller vid klick.
     if (a.grams > 0 && (a.grams === max || a === last)) {
       btn.append(el("span", { className: "cm-cap", textContent: label }));
     }
@@ -1380,10 +1473,11 @@ function renderMonthChart(rows) {
     btn.addEventListener("focus", show);
     btn.addEventListener("click", show);
     plot.append(btn);
-    // Årtal på x-axeln bara när diagrammet spänner över flera år (annars säger rubriken vilket år det är).
-    const xLabel = MONTHS_SV[a.m - 1] + (spansYears && (a.m === 1 || a === months[0]) ? ` -${String(a.y).slice(2)}` : "");
-    xAxis.append(el("span", { className: "cm-x", textContent: xLabel }));
-  }
+    // Med många veckor får inte alla etiketter plats – visa var n:te, men
+    // alltid den sista så man ser var serien slutar.
+    const visaEtikett = i % steg === 0 || a === last;
+    xAxis.append(el("span", { className: "cm-x", textContent: visaEtikett ? a.label : "" }));
+  });
   plot.addEventListener("pointerleave", () => { caption.textContent = defaultCaption; });
 
   chart.append(yAxis, plot, xAxis);

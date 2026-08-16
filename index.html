@@ -161,7 +161,14 @@
     <div class="charts" id="harvest-charts" hidden>
       <figure class="chart-card" id="month-figure">
         <figcaption class="chart-head">
-          <h3>Skörd per månad</h3>
+          <div class="chart-title-row">
+            <!-- Rubriken sätts av renderMonthChart() efter vald skala. -->
+            <h3 id="month-title">Skörd per månad</h3>
+            <div class="chart-scale" role="group" aria-label="Tidsskala">
+              <button type="button" class="scale-btn" data-scale="manad">Månad</button>
+              <button type="button" class="scale-btn" data-scale="vecka">Vecka</button>
+            </div>
+          </div>
           <p class="chart-sub" id="month-caption"></p>
         </figcaption>
         <div class="cm" id="month-chart"></div>
