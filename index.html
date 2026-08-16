@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Odlarnörden</title>
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍅</text></svg>' />
+
+  <!-- "Lägg till på hemskärmen": manifestet ger namn, ikon och att appen
+       öppnas utan adressfält. iOS läser inte SVG-favikonen ovan till
+       hemskärmen, därför en riktig PNG i apple-touch-icon. De två capable-
+       taggarna behövs för äldre iOS, som inte tittar i manifestet.
+       OBS: detta ger ingen offline-funktion – appen behöver nät till Supabase. -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#FAF8F4" />
+  <link rel="apple-touch-icon" href="icons/ikon-180.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Odlarnörden" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
