@@ -1777,12 +1777,10 @@ function recipeCard(r) {
   const markt = privatMarke(r);
   if (markt) card.append(el("div", { className: "tags" }, markt));
 
-  if (r.variety_ids?.length) {
+  const namn = recipeVarietyNames(r);
+  if (namn.length) {
     const tags = el("div", { className: "tags" });
-    for (const vid of r.variety_ids) {
-      const v = varieties.find((x) => x.id === vid);
-      if (v) tags.append(tag(v.name, "beige"));
-    }
+    for (const n of namn) tags.append(tag(n, "beige"));
     card.append(tags);
   }
   if (r.body) {
@@ -1829,8 +1827,24 @@ $("#recipe-print").addEventListener("click", () => {
   w.document.close();
   w.focus();
 });
+// Namnen som visas under "Sorter som passar": de valda sorterna plus fritexten.
+//
+// Sorterna är privata per användare, så ett delat recept pekar på ägarens
+// sort-id som ingen annan kan slå upp — då faller de namnen bort och bara
+// fritexten återstår. Därför dubblerar vissa recept namnen i fritexten; listan
+// avdubbleras här så ägaren inte ser dem två gånger.
 function recipeVarietyNames(r) {
-  return (r.variety_ids || []).map((id) => varieties.find((v) => v.id === id)?.name).filter(Boolean);
+  const franBiblioteket = (r.variety_ids || [])
+    .map((id) => varieties.find((v) => v.id === id)?.name)
+    .filter(Boolean);
+  const alla = [...franBiblioteket, ...(r.extra_varieties || [])];
+  const sedda = new Set();
+  return alla.filter((n) => {
+    const nyckel = n.trim().toLowerCase();
+    if (!nyckel || sedda.has(nyckel)) return false;
+    sedda.add(nyckel);
+    return true;
+  });
 }
 
 // ---- Satsberäkning ----------------------------------------------------
@@ -2056,6 +2070,7 @@ function openReceptDialog(r) {
   form.elements.id.value = r?.id || "";
   form.elements.name.value = r?.name || "";
   form.elements.body.value = r?.body || "";
+  form.elements.extra_varieties.value = (r?.extra_varieties || []).join(", ");
   form.elements.is_shared.checked = !!r?.is_shared;
 
   renderReceptSortval(r?.variety_ids || []);
@@ -2130,10 +2145,12 @@ $("#recipe-edit-form").addEventListener("submit", async (e) => {
   }
 
   const valdaSorter = [...$$("#recipe-variety-picker input:checked")].map((b) => b.value);
+  const fritext = (fd.get("extra_varieties") || "").split(",").map((s) => s.trim()).filter(Boolean);
   const rad = {
     name: fd.get("name"),
     body: fd.get("body") || null,
     variety_ids: valdaSorter,
+    extra_varieties: fritext,
     is_shared: fd.get("is_shared") === "on",
     image_url: receptBildRensad ? null : receptBildPath,
   };

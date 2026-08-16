@@ -93,7 +93,11 @@ create table if not exists public.recipes (
   -- sökväg i Storage-bucketen och behöver signerad URL.
   image_url   text,
   is_shared   boolean not null default false,
-  locked      boolean not null default false
+  locked      boolean not null default false,
+  -- Fritext vid sidan av variety_ids: ingredienser som inte finns som sort,
+  -- och en väg runt att sorterna är privata (ett delat recept pekar på
+  -- ägarens sort-id, som ingen annan kan slå upp).
+  extra_varieties text[] not null default '{}'::text[]
 );
 
 -- Växtnäringslogg, flera datum per plats.
