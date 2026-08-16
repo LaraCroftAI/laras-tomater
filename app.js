@@ -1241,11 +1241,49 @@ function populateHarvestYearFilter() {
   sel.value = harvestYear;
   sel.hidden = years.length < 2; // visas först när det finns skörd från flera år
 }
-function filteredHarvests() {
+// Sortfilter. "" = alla sorter. Scopar hela fliken: nyckeltal, diagram och
+// lista – så man kan se en enskild sorts utveckling över veckorna.
+let harvestVariety = "";
+
+// Bara sorter som faktiskt har skörd under valt år hamnar i listan – annars
+// fylls den med sorter man inte kan välja meningsfullt.
+function harvestVarietyOptions() {
+  const ids = new Set(arsFiltrerade().map((h) => h.variety_id).filter(Boolean));
+  return [...ids]
+    .map((id) => {
+      const v = varieties.find((x) => x.id === id);
+      return { id, name: v ? `${varietyIcon(v)} ${v.name}` : "🧺 (ingen sort)" };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "sv"));
+}
+
+function populateHarvestVarietyFilter() {
+  const sel = $("#harvest-variety-filter");
+  const opts = harvestVarietyOptions();
+  // Byter man år kan den valda sorten sakna skörd det året.
+  if (harvestVariety && !opts.some((o) => o.id === harvestVariety)) harvestVariety = "";
+  sel.replaceChildren();
+  sel.append(el("option", { value: "", textContent: "Alla sorter" }));
+  for (const o of opts) sel.append(el("option", { value: o.id, textContent: o.name }));
+  sel.value = harvestVariety;
+  sel.hidden = opts.length < 2;
+}
+
+function arsFiltrerade() {
   return harvestYear ? harvests.filter((h) => (h.harvested_at || "").startsWith(harvestYear)) : harvests;
 }
+
+function filteredHarvests() {
+  const rows = arsFiltrerade();
+  return harvestVariety ? rows.filter((h) => h.variety_id === harvestVariety) : rows;
+}
+
 $("#harvest-year-filter").addEventListener("change", (e) => {
   harvestYear = e.target.value;
+  renderHarvests();
+});
+$("#harvest-variety-filter").addEventListener("change", (e) => {
+  harvestVariety = e.target.value;
   renderHarvests();
 });
 
@@ -1272,17 +1310,22 @@ function isTomatoHarvest(varietyId) {
 
 function renderHarvests() {
   populateHarvestYearFilter();
+  populateHarvestVarietyFilter();   // efter årsfiltret: sortlistan beror på valt år
   const rows = filteredHarvests();
 
   const list = $("#harvest-list");
   list.replaceChildren();
   for (const h of rows) list.append(harvestCard(h));
+  const valdSort = harvestVariety && varieties.find((v) => v.id === harvestVariety);
+  const sortNamn = valdSort ? `${varietyIcon(valdSort)} ${valdSort.name}` : null;
+
   const empty = $("#harvest-empty");
   empty.hidden = rows.length > 0;
   empty.textContent = harvests.length === 0
     ? "Inga skördar registrerade än."
-    : `Inga skördar registrerade för ${harvestYear}.`;
-  $("#harvest-list-heading").textContent = rows.length ? `Alla skördar · ${rows.length} st` : "Alla skördar";
+    : `Inga skördar registrerade för ${[sortNamn, harvestYear].filter(Boolean).join(" ")}.`;
+  const rubrik = sortNamn ? `Skörd av ${sortNamn}` : "Alla skördar";
+  $("#harvest-list-heading").textContent = rows.length ? `${rubrik} · ${rows.length} st` : rubrik;
 
   const sum = $("#harvest-summary");
   sum.replaceChildren();
@@ -1291,10 +1334,16 @@ function renderHarvests() {
     const grams = rows.reduce((s, h) => s + (h.weight_g || 0), 0);
     const tomatoGrams = rows.filter((h) => isTomatoHarvest(h.variety_id)).reduce((s, h) => s + (h.weight_g || 0), 0);
     const otherGrams = grams - tomatoGrams;
-    sum.append(stat("Tomater", autoWeight(tomatoGrams)));
-    sum.append(stat("Övrigt", autoWeight(otherGrams)));
+    // Uppdelningen tomat/övrigt är meningslös när man filtrerat fram en enda
+    // sort – då är den ena alltid 0. Visa bara den som har vikt.
+    if (!harvestVariety || tomatoGrams) sum.append(stat("Tomater", autoWeight(tomatoGrams)));
+    if (!harvestVariety || otherGrams) sum.append(stat("Övrigt", autoWeight(otherGrams)));
     sum.append(stat("Antal skördar", rows.length));
-    sum.append(stat("Antal sorter", new Set(rows.map((h) => h.variety_id).filter(Boolean)).size));
+    // "Antal sorter: 1" säger ingenting när man filtrerat fram en enda sort –
+    // snittet per skörd är mer användbart då.
+    sum.append(harvestVariety
+      ? stat("Snitt per skörd", autoWeight(Math.round(grams / rows.length)))
+      : stat("Antal sorter", new Set(rows.map((h) => h.variety_id).filter(Boolean)).size));
     sum.append(stat("Senaste skörd", new Date(rows[0].harvested_at).toLocaleDateString("sv-SE")));
   }
 
