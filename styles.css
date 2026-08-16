@@ -464,6 +464,12 @@ button:disabled {
   color: var(--accent);
 }
 .feeding-latest.overdue { color: var(--danger); }
+/* Kortet är flex-kolumn, så knappen skulle annars sträcka sig över hela bredden */
+.feeding-more {
+  align-self: flex-start;
+  padding: 0;
+  font-size: 0.85rem;
+}
 .add-date {
   align-self: flex-start;
   font-size: 0.85rem;

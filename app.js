@@ -1047,6 +1047,17 @@ function placedLocations() {
   const set = new Set(plantings.map((p) => p.location).filter((l) => l && l !== "Ej placerad"));
   return [...set].sort((a, b) => a.localeCompare(b, "sv"));
 }
+// Hur många gödslingstillfällen som visas innan "Visa alla".
+const FEEDING_ANTAL = 5;
+
+function feedingTag(location, f) {
+  const label = new Date(f.fed_on).toLocaleDateString("sv-SE") + (f.notes ? ` · ${f.notes}` : "");
+  const t = tag(label, "green");
+  t.classList.add("clickable");
+  t.addEventListener("click", () => openFeedingDialog(location, f));
+  return t;
+}
+
 function feedingCard(location) {
   const card = el("li", { className: "card static" });
   const list = feedings.filter((f) => f.location === location);
@@ -1066,15 +1077,28 @@ function feedingCard(location) {
   }));
 
   if (list.length) {
+    // Sent på säsongen blir listan lång – växthuset låg på tio tillfällen i
+    // mitten av augusti. Visa de senaste, med resten en knapptryckning bort.
     const tags = el("div", { className: "tags" });
-    for (const f of list) {
-      const label = new Date(f.fed_on).toLocaleDateString("sv-SE") + (f.notes ? ` · ${f.notes}` : "");
-      const t = tag(label, "green");
-      t.classList.add("clickable");
-      t.addEventListener("click", () => openFeedingDialog(location, f));
-      tags.append(t);
-    }
+    const rita = (alla) => {
+      tags.replaceChildren();
+      for (const f of alla ? list : list.slice(0, FEEDING_ANTAL)) tags.append(feedingTag(location, f));
+    };
+    rita(false);
     card.append(tags);
+
+    if (list.length > FEEDING_ANTAL) {
+      const mer = el("button", { type: "button", className: "linkish feeding-more" });
+      let utfalld = false;
+      const etikett = () => (utfalld ? "Visa färre" : `Visa alla ${list.length}`);
+      mer.textContent = etikett();
+      mer.addEventListener("click", () => {
+        utfalld = !utfalld;
+        rita(utfalld);
+        mer.textContent = etikett();
+      });
+      card.append(mer);
+    }
   }
 
   const add = el("button", { type: "button", className: "primary add-date", textContent: "+ Datum" });
