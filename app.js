@@ -74,6 +74,20 @@ function authError(text) {
 // Plockar bort token/felkod ur adressfältet så en omladdning inte kör om flödet.
 function cleanUrl() { history.replaceState(null, "", location.pathname); }
 
+// Vem är inloggad? Visas i topbaren bredvid säsongen. Bara delen före @ –
+// hela adressen får inte plats på en telefon. Full adress ligger i title,
+// och i "Om dina uppgifter" står den utskriven.
+function visaInloggad() {
+  const ruta = $("#brand-user");
+  const epost = currentUser?.email || "";
+  ruta.hidden = !epost;
+  // Rensa texten också, inte bara dölj – annars ligger förra användarens namn
+  // kvar i sidan efter utloggning.
+  ruta.textContent = epost ? ` · ${epost.split("@")[0]}` : "";
+  if (epost) ruta.title = epost;
+  else ruta.removeAttribute("title");
+}
+
 async function showApp() {
   const { data: allowed } = await sb.rpc("is_allowed");
   if (!allowed) {
@@ -86,6 +100,7 @@ async function showApp() {
   authView.hidden = true;
   recoveryView.hidden = true;
   appView.hidden = false;
+  visaInloggad();
   const { data: admin } = await sb.rpc("is_admin");
   $("#admin-btn").hidden = !admin;
   await loadAll();
@@ -166,6 +181,9 @@ function openPrivacyDialog() {
   // Radera-knappen visas bara för den som är inloggad – på inloggningsskärmen
   // finns inget konto att radera.
   $("#delete-account-btn").hidden = !currentUser;
+  const konto = $("#privacy-account");
+  konto.hidden = !currentUser?.email;
+  konto.textContent = currentUser?.email ? `Inloggad som ${currentUser.email}` : "";
   $("#privacy-dialog").showModal();
 }
 $("#privacy-btn").addEventListener("click", openPrivacyDialog);

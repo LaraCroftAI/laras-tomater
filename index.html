@@ -77,7 +77,8 @@
       <span class="brand-mark" aria-hidden="true">🌱</span>
       <div>
         <h1>Odlarnörden</h1>
-        <p class="brand-sub" id="brand-season">Säsong</p>
+        <!-- Namnet är e-postadressen utan @-delen; full adress i title. -->
+        <p class="brand-sub"><span id="brand-season">Säsong</span><span id="brand-user" hidden></span></p>
       </div>
     </div>
     <div class="topbar-actions">
@@ -480,6 +481,9 @@
 <dialog id="privacy-dialog">
   <form method="dialog" id="privacy-form">
     <h2>Om dina uppgifter</h2>
+    <!-- Topbaren visar bara delen före @ - här står hela adressen. Dold på
+         inloggningsskärmen, där det inte finns något konto att visa. -->
+    <p id="privacy-account" class="msg" hidden></p>
     <div class="privacy-text">
       <p><strong>Vad som sparas.</strong> Din e-postadress, och det du själv skriver in: sorter, plantor, skördar, växtnäring, recept och foton.</p>
       <p><strong>Vem som ser det.</strong> Bara du. Din odling, skörd, växtnäring och dina foton är privata och skyddas av regler i databasen. Undantaget är recepten, som är gemensamma och läsbara för alla inbjudna.</p>
