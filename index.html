@@ -195,10 +195,11 @@
 
   <section id="tab-recept" class="tab-panel" hidden>
     <div class="section-head">
-      <h2>Recept</h2>
+      <h2 id="recept-heading">Recept</h2>
+      <button id="add-recipe-btn" class="primary">+ Recept</button>
     </div>
     <ul id="recipe-list" class="cards"></ul>
-    <p id="recipe-empty" class="msg" hidden>Inga recept ännu.</p>
+    <p id="recipe-empty" class="msg" hidden>Inga recept ännu. Lägg till ett eget med knappen ovan — du väljer själv om det ska vara privat eller delas med de andra.</p>
   </section>
 
   <section id="tab-galleri" class="tab-panel" hidden>
@@ -453,7 +454,53 @@
       <p id="recipe-dialog-body" class="recipe-body"></p>
       <div class="row end">
         <button value="cancel" class="ghost" formnovalidate>Stäng</button>
+        <!-- Visas bara för egna, olåsta recept. Låsta sköts utanför appen. -->
+        <button type="button" class="ghost" id="recipe-edit-btn" hidden>✏️ Ändra</button>
         <button type="button" class="primary" id="recipe-print">🖨️ Skriv ut</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Skapa och ändra egna recept. Läsvyn ovan lämnas orörd - den har
+       satsberäkning och utskrift och fungerar för alla recept. -->
+  <dialog id="recipe-edit-dialog">
+    <form method="dialog" id="recipe-edit-form">
+      <h2 id="recipe-edit-title">Nytt recept</h2>
+      <input type="hidden" name="id" />
+
+      <label>Namn<input name="name" required maxlength="120" /></label>
+
+      <div class="field">
+        <span class="field-label">Omslagsbild</span>
+        <img id="recipe-edit-image" class="recipe-dialog-image" alt="" hidden />
+        <div class="row">
+          <label id="recipe-image-label" class="photo-add">
+            <span id="recipe-image-text">📷 Välj bild</span>
+            <input type="file" id="recipe-image-input" accept="image/*" hidden />
+          </label>
+          <button type="button" class="ghost" id="recipe-image-remove" hidden>Ta bort bild</button>
+        </div>
+      </div>
+
+      <label>Recept<textarea name="body" rows="12" placeholder="Kort beskrivning …&#10;&#10;Ingredienser&#10;500 g tomater&#10;1 gul lök&#10;&#10;Gör så här&#10;1. …"></textarea></label>
+      <p class="msg">Skriv <strong>Ingredienser</strong> på en egen rad, ingredienserna under, och en tomrad före tillagningen. Då kan appen räkna om mängderna till halv eller dubbel sats.</p>
+
+      <div class="field">
+        <span class="field-label">Sorter som passar</span>
+        <div id="recipe-variety-picker" class="starter-rows"></div>
+        <p id="recipe-variety-empty" class="msg" hidden>Du har inga sorter i biblioteket än.</p>
+      </div>
+
+      <label class="check-row">
+        <input type="checkbox" name="is_shared" />
+        <span>Dela med de andra i appen — annars ser bara du receptet</span>
+      </label>
+
+      <p id="recipe-edit-msg" class="msg"></p>
+      <div class="row end">
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="delete" class="danger" formnovalidate id="recipe-delete" hidden>Ta bort</button>
+        <button value="save" class="primary" id="recipe-save">Spara</button>
       </div>
     </form>
   </dialog>

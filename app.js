@@ -199,7 +199,13 @@ $("#delete-account-btn").addEventListener("click", async () => {
   // Filerna först, medan inloggningen fortfarande gäller. Databasen kan inte
   // radera dem åt oss – Supabase blockerar DELETE direkt mot lagringstabellerna –
   // så går det inte här avbryter vi hellre än att lämna föräldralösa filer kvar.
-  const paths = [...plantPhotos.map((p) => p.path), ...galleryPhotos.map((p) => p.path)].filter(Boolean);
+  const paths = [
+    ...plantPhotos.map((p) => p.path),
+    ...galleryPhotos.map((p) => p.path),
+    // Egna receptbilder ligger också i lagringen. Laras ligger i repot och
+    // ska inte röras.
+    ...recipes.filter((r) => r.user_id === currentUser?.id && r.image_url && !arRepobild(r.image_url)).map((r) => r.image_url),
+  ].filter(Boolean);
   if (paths.length) {
     const { error: filErr } = await sb.storage.from("plant-photos").remove(paths);
     if (filErr) {
@@ -507,10 +513,29 @@ async function loadHarvests() {
   if (error) return console.error(error);
   harvests = data;
 }
+// Omslagsbilder finns i två former. Laras egna ligger som filer i repot
+// (`images/...`) och deployas statiskt. Bilder som användare laddar upp kan
+// inte committas, så de hamnar i samma privata Storage-bucket som fotona och
+// behöver en signerad URL. Prefixet skiljer dem åt.
+function arRepobild(url) {
+  return !!url && url.startsWith("images/");
+}
+function recipeBild(r) {
+  if (!r.image_url) return null;
+  return arRepobild(r.image_url) ? r.image_url : r.signedUrl || null;
+}
+
 async function loadRecipes() {
   const { data, error } = await sb.from("recipes").select("*").order("name");
   if (error) return console.error(error);
   recipes = data;
+
+  const paths = recipes.map((r) => r.image_url).filter((u) => u && !arRepobild(u));
+  if (!paths.length) return;
+  const { data: signed, error: sErr } = await sb.storage.from("plant-photos").createSignedUrls(paths, 28800);
+  if (sErr) return console.error(sErr);
+  const map = new Map((signed || []).map((s) => [s.path, s.signedUrl]));
+  for (const r of recipes) if (!arRepobild(r.image_url)) r.signedUrl = map.get(r.image_url);
 }
 async function loadFeedings() {
   const { data, error } = await sb
@@ -1723,13 +1748,25 @@ $("#harvest-form").addEventListener("submit", async (e) => {
 });
 
 // ---------------- RECIPES ----------------
+// Egna recept som INTE är delade märks ut, så man vet vad de andra ser.
+function privatMarke(r) {
+  return r.user_id === currentUser?.id && !r.is_shared ? tag("Privat", "outline") : null;
+}
+// Får den inloggade ändra receptet? Låsta sköts utanför appen.
+function kanAndraRecept(r) {
+  return !!currentUser && r.user_id === currentUser.id && !r.locked;
+}
+
 function recipeCard(r) {
   const card = el("li", { className: "card" });
+  const bild = recipeBild(r);
 
-  if (r.image_url) {
+  if (bild) {
     card.classList.add("recipe-card");
-    card.append(el("img", { className: "recipe-cover", src: r.image_url, alt: r.name, loading: "lazy" }));
+    card.append(el("img", { className: "recipe-cover", src: bild, alt: r.name, loading: "lazy" }));
     card.append(el("h3", { className: "recipe-cover-title", textContent: r.name }));
+    const markt = privatMarke(r);
+    if (markt) { markt.classList.add("recipe-privat"); card.append(markt); }
     card.addEventListener("click", () => openRecipeDialog(r));
     return card;
   }
@@ -1737,6 +1774,8 @@ function recipeCard(r) {
   const head = el("div", { className: "card-head" });
   head.append(el("h3", { textContent: r.name }));
   card.append(head);
+  const markt = privatMarke(r);
+  if (markt) card.append(el("div", { className: "tags" }, markt));
 
   if (r.variety_ids?.length) {
     const tags = el("div", { className: "tags" });
@@ -1757,6 +1796,7 @@ function renderRecipes() {
   const list = $("#recipe-list");
   list.replaceChildren();
   $("#recipe-empty").hidden = recipes.length > 0;
+  $("#recept-heading").textContent = recipes.length ? `Recept · ${recipes.length} st` : "Recept";
   for (const r of recipes) list.append(recipeCard(r));
 }
 function escapeHtml(s) {
@@ -1947,14 +1987,16 @@ function openRecipeDialog(r) {
   $("#recipe-dialog-title").textContent = r.name || "Recept";
 
   const dlgImg = $("#recipe-dialog-image");
-  if (r.image_url) {
-    dlgImg.src = r.image_url;
+  const bild = recipeBild(r);
+  if (bild) {
+    dlgImg.src = bild;
     dlgImg.alt = r.name || "";
     dlgImg.hidden = false;
   } else {
     dlgImg.hidden = true;
     dlgImg.removeAttribute("src");
   }
+  $("#recipe-edit-btn").hidden = !kanAndraRecept(r);
 
   const names = recipeVarietyNames(r);
   const chips = $("#recipe-variety-chips");
@@ -1966,6 +2008,158 @@ function openRecipeDialog(r) {
 
   $("#recipe-dialog").showModal();
 }
+
+// ---------------- SKAPA OCH ÄNDRA RECEPT ----------------
+// Egen dialog, skild från läsvyn ovan. Läsvyn har satsberäkning och utskrift
+// och fungerar för alla recept; den här rör bara de egna, olåsta.
+//
+// `locked` går inte att sätta härifrån — RLS vägrar (verifierat: HTTP 403).
+// Att låsa ett recept görs med servicenyckeln, dvs. via mig.
+
+let receptBildPath = null;   // vald bild, innan Spara
+let receptBildRensad = false;
+
+function renderReceptSortval(valda) {
+  const lista = $("#recipe-variety-picker");
+  lista.replaceChildren();
+  $("#recipe-variety-empty").hidden = varieties.length > 0;
+  for (const v of varieties) {
+    const rad = el("label", { className: "starter-row" });
+    const box = el("input", { type: "checkbox", value: v.id });
+    box.checked = valda.includes(v.id);
+    rad.append(box);
+    rad.append(el("span", { className: "starter-icon", textContent: varietyIcon(v) }));
+    rad.append(el("span", { className: "starter-text" }, el("span", { className: "starter-name", textContent: v.name })));
+    lista.append(rad);
+  }
+}
+
+function visaReceptbild(url) {
+  const img = $("#recipe-edit-image");
+  img.hidden = !url;
+  if (url) img.src = url; else img.removeAttribute("src");
+  $("#recipe-image-remove").hidden = !url;
+  $("#recipe-image-text").textContent = url ? "📷 Byt bild" : "📷 Välj bild";
+}
+
+function openReceptDialog(r) {
+  const form = $("#recipe-edit-form");
+  form.reset();
+  receptBildPath = r?.image_url || null;
+  receptBildRensad = false;
+
+  $("#recipe-edit-title").textContent = r ? "Ändra recept" : "Nytt recept";
+  $("#recipe-delete").hidden = !r;
+  $("#recipe-edit-msg").textContent = "";
+  $("#recipe-edit-msg").classList.remove("error");
+
+  form.elements.id.value = r?.id || "";
+  form.elements.name.value = r?.name || "";
+  form.elements.body.value = r?.body || "";
+  form.elements.is_shared.checked = !!r?.is_shared;
+
+  renderReceptSortval(r?.variety_ids || []);
+  visaReceptbild(r ? recipeBild(r) : null);
+  $("#recipe-edit-dialog").showModal();
+}
+
+$("#add-recipe-btn").addEventListener("click", () => openReceptDialog(null));
+$("#recipe-edit-btn").addEventListener("click", () => {
+  const r = currentRecipe;
+  $("#recipe-dialog").close();
+  openReceptDialog(r);
+});
+
+$("#recipe-image-remove").addEventListener("click", () => {
+  receptBildRensad = true;
+  receptBildPath = null;
+  visaReceptbild(null);
+});
+
+$("#recipe-image-input").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  const text = $("#recipe-image-text");
+  const prev = text.textContent;
+  text.textContent = "Laddar upp…";
+  $("#recipe-image-label").classList.add("busy");
+  try {
+    const blob = await compressImage(file);
+    // Samma bucket och mappmönster som fotona, så befintlig storage-RLS
+    // (första mappnivån = användarens id) skyddar den utan nya regler.
+    const path = `${currentUser.id}/recept/${crypto.randomUUID()}.jpg`;
+    const { error: upErr } = await sb.storage.from("plant-photos").upload(path, blob, { contentType: "image/jpeg" });
+    if (upErr) throw upErr;
+    const { data: signed } = await sb.storage.from("plant-photos").createSignedUrl(path, 28800);
+    receptBildPath = path;
+    receptBildRensad = false;
+    visaReceptbild(signed?.signedUrl || null);
+  } catch (err) {
+    alert("Kunde inte ladda upp bilden: " + (err.message || err));
+    text.textContent = prev;
+  } finally {
+    $("#recipe-image-label").classList.remove("busy");
+  }
+});
+
+$("#recipe-edit-form").addEventListener("submit", async (e) => {
+  const action = e.submitter?.value;
+  if (action === "cancel") return;
+  e.preventDefault();
+
+  const fd = new FormData(e.target);
+  const id = fd.get("id");
+  const befintligt = id ? recipes.find((x) => x.id === id) : null;
+  const msg = $("#recipe-edit-msg");
+  msg.classList.remove("error");
+
+  if (action === "delete") {
+    if (!confirm("Ta bort receptet? Det går inte att ångra.")) return;
+    // Bilden ligger i Storage och måste tas bort separat – databasen kan inte
+    // radera den (Supabase blockerar delete mot storage-tabellerna).
+    if (befintligt && befintligt.image_url && !arRepobild(befintligt.image_url)) {
+      await sb.storage.from("plant-photos").remove([befintligt.image_url]);
+    }
+    const { error } = await sb.from("recipes").delete().eq("id", id);
+    if (error) { msg.textContent = error.message; msg.classList.add("error"); return; }
+    $("#recipe-edit-dialog").close();
+    await loadRecipes();
+    renderRecipes();
+    return;
+  }
+
+  const valdaSorter = [...$$("#recipe-variety-picker input:checked")].map((b) => b.value);
+  const rad = {
+    name: fd.get("name"),
+    body: fd.get("body") || null,
+    variety_ids: valdaSorter,
+    is_shared: fd.get("is_shared") === "on",
+    image_url: receptBildRensad ? null : receptBildPath,
+  };
+
+  $("#recipe-save").disabled = true;
+  msg.textContent = "Sparar …";
+  let error;
+  if (id) {
+    ({ error } = await sb.from("recipes").update(rad).eq("id", id));
+  } else {
+    rad.user_id = currentUser.id;
+    ({ error } = await sb.from("recipes").insert(rad));
+  }
+  $("#recipe-save").disabled = false;
+
+  if (error) { msg.textContent = error.message; msg.classList.add("error"); return; }
+
+  // Byttes bilden ut ligger den gamla kvar i Storage – städa bort den.
+  const gammal = befintligt?.image_url;
+  if (gammal && !arRepobild(gammal) && gammal !== rad.image_url) {
+    await sb.storage.from("plant-photos").remove([gammal]);
+  }
+  $("#recipe-edit-dialog").close();
+  await loadRecipes();
+  renderRecipes();
+});
 
 // ---------------- GALLERY (Växthusgalleri) ----------------
 // Galleriet visar ALLA uppladdade foton: både de fristående (garden_photos)

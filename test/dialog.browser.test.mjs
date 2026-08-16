@@ -26,7 +26,7 @@ const INDEX = new URL("../index.html", import.meta.url);
 const DIALOGS = [
   "variety-dialog", "planting-dialog", "feeding-dialog",
   "harvest-dialog", "quick-harvest-dialog", "gallery-dialog",
-  "starter-dialog", "password-dialog",
+  "starter-dialog", "password-dialog", "recipe-edit-dialog",
 ];
 
 // ---------------------------------------------------------------- webbläsare

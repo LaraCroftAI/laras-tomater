@@ -78,8 +78,10 @@ create table if not exists public.harvests (
   created_at   timestamptz default now()
 );
 
--- Recept. Läsbara för alla inbjudna, ändras bara av ägaren. Appen är sedan
--- 2026-08-02 en ren läsvy – recept läggs in och ändras utanför appen.
+-- Recept. Var och en lägger upp egna och väljer om de ska delas (2026-08-16).
+-- `locked` betyder "sköts utanför appen" – Laras recept är låsta och kan bara
+-- ändras med servicenyckeln. Egen kolumn i stället för att knyta regeln till
+-- admin-rollen, så den inte följer med om någon annan görs till admin.
 create table if not exists public.recipes (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references auth.users(id) on delete cascade,
@@ -87,7 +89,11 @@ create table if not exists public.recipes (
   body        text,
   variety_ids uuid[] default '{}'::uuid[],
   created_at  timestamptz default now(),
-  image_url   text                          -- sökväg till bild i repots images/
+  -- Två former: "images/..." är en fil i repot (Laras), allt annat är en
+  -- sökväg i Storage-bucketen och behöver signerad URL.
+  image_url   text,
+  is_shared   boolean not null default false,
+  locked      boolean not null default false
 );
 
 -- Växtnäringslogg, flera datum per plats.
@@ -375,11 +381,23 @@ create policy "Users insert own harvests" on public.harvests for insert to authe
 create policy "Users update own harvests" on public.harvests for update to authenticated using (auth.uid() = user_id and public.is_allowed());
 create policy "Users delete own harvests" on public.harvests for delete to authenticated using (auth.uid() = user_id and public.is_allowed());
 
--- Recept: GEMENSAMMA att läsa, ägaren ändrar. Åt andra hållet mot sorterna.
-create policy "All allowed can read recipes" on public.recipes for select to public        using (public.is_allowed());
-create policy "Users insert own recipes"     on public.recipes for insert to authenticated with check (auth.uid() = user_id and public.is_allowed());
-create policy "Users update own recipes"     on public.recipes for update to authenticated using (auth.uid() = user_id and public.is_allowed());
-create policy "Users delete own recipes"     on public.recipes for delete to authenticated using (auth.uid() = user_id and public.is_allowed());
+-- Recept: man ser delade plus sina egna. Låsta rader går varken att ändra
+-- eller radera, och man kan inte låsa sina egna – `locked` sätts bara med
+-- servicenyckeln. Verifierat med ett riktigt konto: försök att radera eller
+-- ändra ett låst recept lämnar raden orörd, och att sätta locked ger HTTP 403.
+create policy "Read shared and own recipes"
+  on public.recipes for select to authenticated
+  using (public.is_allowed() and (is_shared or auth.uid() = user_id));
+create policy "Users insert own recipes"
+  on public.recipes for insert to authenticated
+  with check (auth.uid() = user_id and public.is_allowed() and not locked);
+create policy "Users update own recipes"
+  on public.recipes for update to authenticated
+  using      (auth.uid() = user_id and public.is_allowed() and not locked)
+  with check (auth.uid() = user_id and public.is_allowed() and not locked);
+create policy "Users delete own recipes"
+  on public.recipes for delete to authenticated
+  using (auth.uid() = user_id and public.is_allowed() and not locked);
 
 -- Växtnäring: privat per användare.
 create policy "Users see own feedings"   on public.feedings for select to authenticated using (auth.uid() = user_id and public.is_allowed());
