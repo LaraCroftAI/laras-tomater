@@ -326,7 +326,6 @@ revoke execute on function public.admin_user_ids()                from anon, pub
 grant execute on function public.is_allowed()                   to authenticated;
 grant execute on function public.is_admin()                     to authenticated;
 grant execute on function public.list_allowed()                 to authenticated;
-grant execute on function public.add_allowed(text)              to authenticated;
 grant execute on function public.remove_allowed(text)           to authenticated;
 grant execute on function public.delete_my_account()            to authenticated;
 grant execute on function public.list_starter_varieties()       to authenticated;
@@ -336,6 +335,14 @@ grant execute on function public.copy_starter_varieties(uuid[]) to authenticated
 -- admin. De två funktionerna som anropar den är definer och kör som ägaren, så
 -- de påverkas inte av den här revoken (verifierat 2026-08-15).
 revoke execute on function public.admin_user_ids() from authenticated;
+
+-- add_allowed() är föräldralös sedan 2026-08-14, då inbjudningar flyttades till
+-- Edge Function "bjud-in" (som skriver till allowed_emails med servicenyckeln).
+-- Den 2026-08-15 anropade en webbläsarflik med GAMMAL kod den ändå: adressen
+-- hamnade på allowlistan men inget inbjudningsmejl skickades, helt under
+-- tystnad. Låst för inloggade så att en gammal flik felar synligt i stället.
+-- Servicenyckeln kan fortfarande anropa den, för att lägga upp någon utan mejl.
+revoke execute on function public.add_allowed(text) from authenticated;
 
 
 -- ---------------------------------------------------------- RLS + POLICIES --
