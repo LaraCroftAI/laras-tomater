@@ -224,17 +224,62 @@ $("#logout").addEventListener("click", async () => { await sb.auth.signOut(); })
 // ---------------- VISA/DÖLJ LÖSENORD ----------------
 // Gäller alla tre fälten: inloggningen och de två i "Nytt lösenord". Man ser
 // annars inte att man knappat fel förrän inloggningen nekas.
+function satLosenordSynlighet(knapp, visa) {
+  const falt = knapp.parentElement.querySelector("input");
+  falt.type = visa ? "text" : "password";
+  knapp.textContent = visa ? "Dölj" : "Visa";
+  knapp.setAttribute("aria-label", visa ? "Dölj lösenordet" : "Visa lösenordet");
+  return falt;
+}
 for (const knapp of $$(".pw-toggle")) {
   knapp.addEventListener("click", () => {
-    const falt = knapp.parentElement.querySelector("input");
-    const visasNu = falt.type === "text";
-    falt.type = visasNu ? "password" : "text";
-    knapp.textContent = visasNu ? "Visa" : "Dölj";
-    knapp.setAttribute("aria-label", visasNu ? "Visa lösenordet" : "Dölj lösenordet");
+    const dolt = knapp.parentElement.querySelector("input").type === "password";
     // Tillbaka till fältet, annars försvinner tangentbordet på mobilen.
-    falt.focus();
+    satLosenordSynlighet(knapp, dolt).focus();
   });
 }
+
+// ---------------- BYT LÖSENORD (inloggad) ----------------
+// Glömt-flödet via mejl finns kvar för den som inte kommer in alls. Här krävs
+// inte det nuvarande lösenordet: sessionen är redan beviset, på samma sätt som
+// för "Radera mitt konto".
+$("#password-btn").addEventListener("click", () => {
+  $("#password-form").reset();
+  $("#password-msg").textContent = "";
+  $("#password-msg").classList.remove("error");
+  // Fälten kan ha lämnats synliga från förra gången dialogen var öppen.
+  for (const k of $$("#password-dialog .pw-toggle")) satLosenordSynlighet(k, false);
+  $("#password-dialog").showModal();
+});
+
+$("#password-form").addEventListener("submit", async (e) => {
+  if (e.submitter?.value === "cancel") return;
+  e.preventDefault();
+
+  const msg = $("#password-msg");
+  const btn = $("#password-save");
+  msg.classList.remove("error");
+
+  const pw = $("#change-password").value;
+  if (pw !== $("#change-password-2").value) {
+    msg.textContent = "Lösenorden är inte lika – skriv samma på båda raderna.";
+    msg.classList.add("error");
+    return;
+  }
+
+  btn.disabled = true;
+  msg.textContent = "Sparar …";
+  const { error } = await sb.auth.updateUser({ password: pw });
+  btn.disabled = false;
+
+  if (error) {
+    msg.textContent = error.message;
+    msg.classList.add("error");
+    return;
+  }
+  $("#password-dialog").close();
+  alert("Lösenordet är ändrat. Nästa gång du loggar in använder du det nya.");
+});
 
 // ---------------- GLÖMT LÖSENORD ----------------
 $("#forgot-btn").addEventListener("click", async () => {

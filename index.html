@@ -190,6 +190,7 @@
   </section>
 
   <footer class="app-footer">
+    <button type="button" id="password-btn" class="linkish">Byt lösenord</button>
     <button type="button" id="privacy-btn" class="linkish">Om dina uppgifter</button>
   </footer>
 
@@ -328,6 +329,32 @@
       <div class="row end">
         <button value="cancel" class="ghost" formnovalidate>Stäng</button>
         <button type="button" class="primary" id="admin-add">Bjud in</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Byt lösenord för den som redan är inloggad. Glömt-flödet via mejl finns
+       kvar för den som inte kommer in alls. -->
+  <dialog id="password-dialog">
+    <form method="dialog" id="password-form">
+      <h2>Byt lösenord</h2>
+      <p class="msg">Du är redan inloggad, så du behöver inte ange ditt nuvarande lösenord. Minst 6 tecken.</p>
+      <label>Nytt lösenord
+        <span class="pw-field">
+          <input type="password" id="change-password" required minlength="6" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" aria-label="Visa lösenordet">Visa</button>
+        </span>
+      </label>
+      <label>Upprepa lösenordet
+        <span class="pw-field">
+          <input type="password" id="change-password-2" required minlength="6" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" aria-label="Visa lösenordet">Visa</button>
+        </span>
+      </label>
+      <p id="password-msg" class="msg"></p>
+      <div class="row end">
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="save" class="primary" id="password-save">Spara</button>
       </div>
     </form>
   </dialog>
