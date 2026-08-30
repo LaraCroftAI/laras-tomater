@@ -704,6 +704,18 @@ button:disabled {
   /* Utan detta blir kryssen webbläsarens knallblå, mitt i en i övrigt varm palett. */
   accent-color: var(--accent);
 }
+/* Raden för push-notiser under växtnäringskorten. */
+.push-rad {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.9rem;
+  margin: 0.9rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+.push-rad button { flex: none; }
+
 /* Platsvalet i "Näring för flera platser". Fieldset har egna webbläsarmarginaler
    som annars gör rutan bredare än de andra fälten i dialogen. */
 .places-picker {

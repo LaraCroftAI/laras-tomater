@@ -1,20 +1,26 @@
 -- ============================================================================
 -- Odlarnörden – databasschema
 --
--- GENERERAD UR DEN LEVANDE DATABASEN 2026-08-15 (projekt rciaqovopajrkdtuhkdo).
+-- GENERERAD UR DEN LEVANDE DATABASEN 2026-08-15, påbyggd 2026-08-30 med
+-- avsnittet PUSH-NOTISER (projekt rciaqovopajrkdtuhkdo).
 -- Skriv inte om den här filen för hand när du ändrar databasen – då driver den
 -- isär igen. Gör ändringen i databasen och generera om filen därifrån.
 --
 -- Sanningskällan är Supabase: tabellerna, `pg_policies`, `pg_get_functiondef`
--- och migrationshistoriken (17 migrationer, från `initial_schema` 2026-05-29 till
--- `startpaket_stang_admin_user_ids` 2026-08-15). Den här filen är en läsbar kopia
+-- och migrationshistoriken (25 migrationer, från `initial_schema` 2026-05-29 till
+-- `cron_naringsnotis` 2026-08-30). Den här filen är en läsbar kopia
 -- för repot – och en väg tillbaka om projektet någon gång försvinner.
+--
+-- Läget 2026-08-30: 10 tabeller, 12 funktioner, 32 policies.
 --
 -- Ordningen nedan spelar roll: funktionerna måste finnas före policyerna som
 -- anropar dem, och tomato_varieties före tabellerna som pekar på den.
 --
 -- TÄCKS INTE av den här filen:
---   * Edge Function `bjud-in` (inbjudningsmejlen) – deployas separat.
+--   * Edge Functions `bjud-in` (inbjudningsmejlen) och `naringsnotis`
+--     (push-utskicken) – deployas separat.
+--   * Vault-hemligheterna `naringsnotis_secret` och `vapid_keys` – de skapades
+--     inne i databasen och ska inte ut ur den.
 --   * Auth-inställningar (Site URL, Redirect URLs, avstängd e-postbekräftelse) –
 --     de klickas i Supabase-konsolen och går inte att nå via SQL.
 --   * Innehållet (sorter, plantor, skördar, recept) – ligger i Exportera-ZIP:en.
@@ -440,6 +446,192 @@ create policy "plant-photos update own" on storage.objects for update to public
   using (bucket_id = 'plant-photos' and (storage.foldername(name))[1] = auth.uid()::text and public.is_allowed());
 create policy "plant-photos delete own" on storage.objects for delete to public
   using (bucket_id = 'plant-photos' and (storage.foldername(name))[1] = auth.uid()::text and public.is_allowed());
+
+
+-- ============================================================================
+-- PUSH-NOTISER (2026-08-30)
+--
+-- Hämtat ur den levande databasen samma dag. Delen hänger ihop med:
+--   * Edge Function `naringsnotis` – skickar utskicken, deployas separat.
+--   * sw.js i repot – service workern som tar emot dem.
+--   * cron-jobbet längst ner i det här avsnittet.
+--
+-- Två hemligheter ligger i Vault och finns med flit INTE i den här filen:
+--   `naringsnotis_secret` (delad hemlighet cron ↔ Edge Function) och
+--   `vapid_keys` (VAPID-nyckelparet). Båda skapades inne i databasen och har
+--   aldrig funnits utanför den. Tappas de bort går de att skapa om: radera
+--   raderna ur vault.secrets och töm push_config, så genererar Edge-funktionen
+--   nya vid nästa körning – men då måste alla prenumerera på nytt, eftersom
+--   prenumerationerna är låsta till den gamla publika nyckeln.
+-- ============================================================================
+
+-- Krävs för det schemalagda utskicket. pg_cron kör jobbet, pg_net gör anropet.
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- En rad per webbläsare/telefon. Samma person kan ha flera. endpoint är unik
+-- globalt – den ÄR adressen som pushtjänsten levererar till.
+create table if not exists public.push_subscriptions (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  endpoint     text not null unique,
+  p256dh       text not null,          -- prenumerantens publika nyckel
+  auth_secret  text not null,          -- prenumerantens delade hemlighet
+  created_at   timestamptz not null default now(),
+  last_ok_at   timestamptz,
+  last_error   text,
+  last_sent_at timestamptz             -- jobbet tiger i tre dygn efter utskick
+);
+
+create index if not exists push_subscriptions_user_idx
+  on public.push_subscriptions (user_id);
+
+-- Den publika VAPID-nyckeln. Avsiktligt läsbar för inloggade: klienten måste
+-- ha den för att kunna prenumerera. En enda rad, låst med check(id).
+create table if not exists public.push_config (
+  id         boolean primary key default true check (id),
+  public_key text not null,
+  updated_at timestamptz not null default now()
+);
+
+
+-- --------------------------------------------------------------- FUNKTIONER --
+
+-- Vilka platser som är försenade, för alla användare. Samma regel som bannern
+-- i appen: platsen måste ha plantor den här säsongen, och sista gödslingen
+-- ligga minst min_dagar tillbaka. Aldrig gödslad = alltid försenad (dagar null).
+-- Säsong och dygnsgräns räknas i svensk tid – på UTC ligger dygnet kvar på
+-- gårdagens datum mellan midnatt och klockan två.
+create or replace function public.naring_forsenade(min_dagar integer default 7)
+returns table(user_id uuid, plats text, dagar integer)
+language sql
+security definer
+set search_path to 'public'
+as $function$
+  with idag as (
+    select (now() at time zone 'Europe/Stockholm')::date as d
+  ),
+  sasong as (
+    select to_char((select d from idag), 'YYYY') as ar
+  ),
+  platser as (
+    select distinct t.user_id, t.location as plats
+    from public.user_tomatoes t
+    where t.season = (select ar from sasong)
+      and t.location is not null
+      and t.location <> 'Ej placerad'
+  ),
+  senaste as (
+    select p.user_id, p.plats,
+      (select max(f.fed_on)
+         from public.feedings f
+        where f.user_id = p.user_id
+          and f.location = p.plats
+          and f.season = (select ar from sasong)) as sista
+    from platser p
+  )
+  select s.user_id,
+         s.plats,
+         case when s.sista is null then null
+              else ((select d from idag) - s.sista)::int end as dagar
+  from senaste s
+  where s.sista is null
+     or ((select d from idag) - s.sista) >= min_dagar
+  order by s.user_id, (s.sista is null) desc, s.sista;
+$function$;
+
+-- Läsare av Vault för Edge-funktionen. Bara de två namn den behöver, inte en
+-- generell nyckel till hela valvet.
+create or replace function public.hemlighet(namn text)
+returns text
+language plpgsql
+security definer
+set search_path to 'public', 'vault'
+as $function$
+declare
+  varde text;
+begin
+  if namn not in ('naringsnotis_secret', 'vapid_keys') then
+    raise exception 'Otillåtet hemlighetsnamn: %', namn;
+  end if;
+  select decrypted_secret into varde from vault.decrypted_secrets where name = namn;
+  return varde;
+end;
+$function$;
+
+-- Skriver ner VAPID-nycklarna första gången Edge-funktionen kör. Vägrar skriva
+-- över befintliga – en oavsiktlig omgenerering skulle döda alla prenumerationer.
+create or replace function public.spara_vapid(jwks text, publik text)
+returns void
+language plpgsql
+security definer
+set search_path to 'public', 'vault'
+as $function$
+begin
+  if exists (select 1 from vault.secrets where name = 'vapid_keys') then
+    raise exception 'VAPID-nycklarna finns redan och skrivs inte över';
+  end if;
+  perform vault.create_secret(jwks, 'vapid_keys', 'VAPID-nyckelpar (JWKS) för push-notiser');
+  insert into public.push_config (id, public_key) values (true, publik)
+    on conflict (id) do update set public_key = excluded.public_key, updated_at = now();
+end;
+$function$;
+
+-- anon ÄRVER EXECUTE från PUBLIC. Att bara återkalla från anon gör ingenting –
+-- rättigheten ligger kvar. Ta bort från public först, ge sedan till den som
+-- behöver. Ingen av de tre körs av inloggade användare.
+revoke all on function public.naring_forsenade(integer) from public, anon, authenticated;
+revoke all on function public.hemlighet(text)           from public, anon, authenticated;
+revoke all on function public.spara_vapid(text, text)   from public, anon, authenticated;
+grant execute on function public.naring_forsenade(integer) to service_role;
+grant execute on function public.hemlighet(text)           to service_role;
+grant execute on function public.spara_vapid(text, text)   to service_role;
+
+
+-- ---------------------------------------------------------- RLS + POLICIES --
+
+alter table public.push_subscriptions enable row level security;
+alter table public.push_config        enable row level security;
+
+-- Var och en styr bara sina egna prenumerationer. Ingen update-policy: en
+-- ändrad prenumeration ersätts genom att raderas och läggas in på nytt.
+create policy "egna prenumerationer syns"
+  on public.push_subscriptions for select to authenticated
+  using (user_id = auth.uid());
+create policy "egna prenumerationer laggs till"
+  on public.push_subscriptions for insert to authenticated
+  with check (user_id = auth.uid());
+create policy "egna prenumerationer tas bort"
+  on public.push_subscriptions for delete to authenticated
+  using (user_id = auth.uid());
+
+-- Bara läsning. Skrivning sker enbart av service_role, som går förbi RLS.
+create policy "publika nyckeln far lasas av inloggade"
+  on public.push_config for select to authenticated
+  using (true);
+
+
+-- ------------------------------------------------------------------- CRON --
+
+-- 06:12 UTC = 08:12 svensk sommartid, på morgonen innan man går ut i växthuset.
+-- Hemligheten läses ur Vault vid varje körning och finns aldrig i klartext i
+-- vare sig schemat eller repot.
+--
+-- Pausa med:  select cron.unschedule('naringsnotis');
+select cron.schedule(
+  'naringsnotis',
+  '12 6 * * *',
+  $job$
+  select net.http_post(
+    url := 'https://rciaqovopajrkdtuhkdo.supabase.co/functions/v1/naringsnotis',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-naringsnotis-nyckel', public.hemlighet('naringsnotis_secret')
+    ),
+    timeout_milliseconds := 20000
+  );
+  $job$
+);
 
 
 -- ============================================================================

@@ -631,6 +631,9 @@ function renderAll() {
   renderFeedings();
   renderFeedingReminder();
   fyllFeedingNotesList();
+  // Registreringen är idempotent och rendering av raden kräver ett svar från
+  // service worker-API:et, så den får hänga med utanför det synkrona flödet.
+  registreraServiceWorker().then(renderPushRad);
   renderHarvests();
   renderRecipes();
   renderGallery();
@@ -1304,6 +1307,182 @@ function renderFeedingReminder() {
   // näring ges nästan alltid överallt samtidigt, och där syns alla platser.
   $("#reminder-log").onclick = () => openFeedAllDialog();
 }
+
+// ---- Push-notiser
+// Vad raden ska visa, uträknat utan att röra webbläsarens API:er. Tillstånden
+// är fler än man tror, och flera av dem går inte att framkalla på en dator –
+// därför är den här delen ren och testbar för sig.
+function pushLaget({ stods, arIos, installerad, tillstand, prenumererad }) {
+  if (!stods && arIos && !installerad) {
+    return {
+      text: "Lägg till appen på hemskärmen först – iPhone tillåter notiser bara då.",
+      knapp: null,
+      test: false,
+    };
+  }
+  if (!stods) {
+    return { text: "Den här webbläsaren kan inte visa notiser.", knapp: null, test: false };
+  }
+  if (tillstand === "denied") {
+    return {
+      text: "Notiser är blockerade för sidan. Det ändras i webbläsarens inställningar.",
+      knapp: null,
+      test: false,
+    };
+  }
+  if (prenumererad) {
+    // Testknappen finns bara när det går att testa. Utan den skulle man behöva
+    // vänta en vecka på den första riktiga påminnelsen för att veta om
+    // notiserna alls kommer fram i just den här telefonen.
+    return { text: "Påminnelser i telefonen är på.", knapp: "Stäng av", test: true };
+  }
+  return {
+    text: "Få en påminnelse i telefonen när en plats väntat en vecka på näring.",
+    knapp: "Slå på",
+    test: false,
+  };
+}
+
+// Den publika VAPID-nyckeln är base64url; PushManager vill ha den som bytes.
+function nyckelTillBytes(base64url) {
+  const pad = base64url.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(pad + "=".repeat((4 - pad.length % 4) % 4));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+// ---- slut push-notiser
+
+let swRegistrering = null;
+
+function pushStods() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+function arIosEnhet() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+function arInstallerad() {
+  return window.matchMedia("(display-mode: standalone)").matches
+    || navigator.standalone === true;
+}
+
+async function registreraServiceWorker() {
+  if (!pushStods() || swRegistrering) return swRegistrering;
+  try {
+    swRegistrering = await navigator.serviceWorker.register("sw.js");
+    return swRegistrering;
+  } catch (e) {
+    console.error("Kunde inte registrera service worker:", e);
+    return null;
+  }
+}
+
+async function nuvarandePrenumeration() {
+  if (!swRegistrering) return null;
+  return await swRegistrering.pushManager.getSubscription();
+}
+
+async function renderPushRad() {
+  const status = $("#push-status");
+  const knapp = $("#push-toggle");
+  const lage = pushLaget({
+    stods: pushStods(),
+    arIos: arIosEnhet(),
+    installerad: arInstallerad(),
+    tillstand: pushStods() ? Notification.permission : "default",
+    prenumererad: Boolean(await nuvarandePrenumeration()),
+  });
+  status.textContent = lage.text;
+  knapp.hidden = !lage.knapp;
+  if (lage.knapp) knapp.textContent = lage.knapp;
+  $("#push-test").hidden = !lage.test;
+}
+
+$("#push-test").addEventListener("click", async () => {
+  const knapp = $("#push-test");
+  const original = knapp.textContent;
+  knapp.disabled = true;
+  knapp.textContent = "Skickar…";
+  try {
+    // Funktionen har verify_jwt avstängt (cron har ingen JWT), så den
+    // kontrollerar token själv och skickar bara till anroparens egna enheter.
+    const { data: session } = await sb.auth.getSession();
+    const token = session?.session?.access_token;
+    if (!token) throw new Error("Ingen giltig session.");
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/naringsnotis`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const svar = await res.json();
+    if (!res.ok) throw new Error(svar.fel || `HTTP ${res.status}`);
+    if (svar.skickade > 0) {
+      knapp.textContent = "Skickad ✓";
+    } else {
+      alert("Ingen enhet att skicka till. Slå på påminnelser igen och försök om.");
+      knapp.textContent = original;
+    }
+  } catch (e) {
+    alert(`Testnotisen gick inte att skicka: ${e.message}`);
+    knapp.textContent = original;
+  } finally {
+    knapp.disabled = false;
+    setTimeout(() => { knapp.textContent = original; }, 4000);
+  }
+});
+
+async function slaPaPush() {
+  const reg = await registreraServiceWorker();
+  if (!reg) return alert("Kunde inte starta notistjänsten i den här webbläsaren.");
+
+  // Måste ske i ett klick – webbläsare avvisar förfrågan utan användargest.
+  const svar = await Notification.requestPermission();
+  if (svar !== "granted") return renderPushRad();
+
+  const { data: konf, error: konfFel } = await sb
+    .from("push_config").select("public_key").maybeSingle();
+  if (konfFel || !konf?.public_key) {
+    return alert("Hittade ingen nyckel för notiser. Säg till så tittar jag på det.");
+  }
+
+  const pren = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: nyckelTillBytes(konf.public_key),
+  });
+
+  const rad = pren.toJSON();
+  const { error } = await sb.from("push_subscriptions").insert({
+    user_id: currentUser.id,
+    endpoint: rad.endpoint,
+    p256dh: rad.keys.p256dh,
+    auth_secret: rad.keys.auth,
+  });
+  // 23505 = redan registrerad endpoint. Det är inget fel: samma enhet igen.
+  if (error && error.code !== "23505") {
+    await pren.unsubscribe();
+    return alert(error.message);
+  }
+  await renderPushRad();
+}
+
+async function stangAvPush() {
+  const pren = await nuvarandePrenumeration();
+  if (pren) {
+    await sb.from("push_subscriptions").delete().eq("endpoint", pren.endpoint);
+    await pren.unsubscribe();
+  }
+  await renderPushRad();
+}
+
+$("#push-toggle").addEventListener("click", async () => {
+  const knapp = $("#push-toggle");
+  knapp.disabled = true;
+  try {
+    if (await nuvarandePrenumeration()) await stangAvPush();
+    else await slaPaPush();
+  } finally {
+    knapp.disabled = false;
+  }
+});
 
 function fyllFeedingNotesList() {
   // Förslagen gör att samma preparat stavas likadant varje gång.

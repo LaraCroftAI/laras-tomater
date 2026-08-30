@@ -161,6 +161,14 @@
     </div>
     <ul id="feeding-list" class="cards"></ul>
     <p id="feeding-empty" class="msg" hidden>Här dyker dina platser upp när du har plantor placerade (allt utom "Ej placerad").</p>
+
+    <!-- Push-notiser. Texten och knappen sätts av renderPushRad(); raden är
+         alltid synlig så att den som inte kan få notiser får veta varför. -->
+    <p id="push-rad" class="push-rad">
+      <span id="push-status"></span>
+      <button type="button" class="ghost" id="push-toggle" hidden></button>
+      <button type="button" class="ghost" id="push-test" hidden>Skicka en testnotis</button>
+    </p>
   </section>
 
   <section id="tab-skord" class="tab-panel" hidden>
