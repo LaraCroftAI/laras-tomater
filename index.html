@@ -157,6 +157,7 @@
 
     <div class="section-head spaced">
       <h2>Växtnäring per plats</h2>
+      <button id="feed-all-btn" class="primary">+ Alla platser</button>
     </div>
     <ul id="feeding-list" class="cards"></ul>
     <p id="feeding-empty" class="msg" hidden>Här dyker dina platser upp när du har plantor placerade (allt utom "Ej placerad").</p>
@@ -337,13 +338,36 @@
     </form>
   </dialog>
 
+  <!-- Preparaten hon redan använt, så samma namn stavas likadant varje gång.
+       Fylls av fyllFeedingNotesList(). -->
+  <datalist id="feeding-notes-list"></datalist>
+
+  <!-- Näring för flera platser på en gång. Lara gödslar nästan alltid alla
+       fyra platser samma dag men fick tidigare logga dem en och en. -->
+  <dialog id="feeding-all-dialog">
+    <form method="dialog" id="feeding-all-form">
+      <h2>Näring för flera platser</h2>
+      <label>Datum<input name="fed_on" type="date" required /></label>
+      <label>Anteckning (t.ex. typ av näring)<input name="notes" list="feeding-notes-list" /></label>
+      <fieldset class="places-picker">
+        <legend>Platser</legend>
+        <div id="feeding-all-places"></div>
+      </fieldset>
+      <p id="feeding-all-msg" class="msg" hidden></p>
+      <div class="row end">
+        <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
+        <button value="save" class="primary">Spara</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="feeding-dialog">
     <form method="dialog" id="feeding-form">
       <h2 id="feeding-dialog-title">Växtnäring</h2>
       <input type="hidden" name="id" />
       <input type="hidden" name="location" />
       <label>Datum<input name="fed_on" type="date" required /></label>
-      <label>Anteckning (t.ex. typ av näring)<input name="notes" /></label>
+      <label>Anteckning (t.ex. typ av näring)<input name="notes" list="feeding-notes-list" /></label>
       <div class="row end">
         <button value="cancel" class="ghost" formnovalidate>Avbryt</button>
         <button value="delete" class="danger" formnovalidate id="feeding-delete" hidden>Ta bort</button>

@@ -630,6 +630,7 @@ function renderAll() {
   renderPlantings();
   renderFeedings();
   renderFeedingReminder();
+  fyllFeedingNotesList();
   renderHarvests();
   renderRecipes();
   renderGallery();
@@ -1177,6 +1178,32 @@ function naringsLage(platser, rader, idag = new Date()) {
   const nyckel = (x) => (x.dagar === null ? Number.MAX_SAFE_INTEGER : x.dagar);
   return lage.sort((a, b) => nyckel(b) - nyckel(a));
 }
+// Dagens datum som YYYY-MM-DD, räknat lokalt. toISOString() ger UTC, vilket i
+// svensk sommartid lägger allt som loggas efter klockan 22 på gårdagens datum.
+function idagIso(d = new Date()) {
+  const tva = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${tva(d.getMonth() + 1)}-${tva(d.getDate())}`;
+}
+
+// Vilka rader ett sparande för flera platser faktiskt ska skapa. En redan
+// loggad kombination av plats + datum + anteckning hoppas över, annars ger ett
+// andra klick på "Alla platser" dubbletter i historiken. Samma plats och datum
+// med ett ANNAT preparat är däremot giltigt – 11 augusti 2026 fick alla fyra
+// platser både Rhizoferm och flytande tomatnäring.
+function nyaNaringsrader(platser, datum, anteckning, befintliga) {
+  // Jämför fälten direkt i stället för att bygga en nyckelsträng: en
+  // separator måste vara ett tecken som aldrig kan förekomma i datan, och
+  // sådana tecken är osynliga i källkoden.
+  const redanLoggad = (plats) => befintliga.some(
+    (f) => f.location === plats
+      && f.fed_on === datum
+      && (f.notes ?? "") === (anteckning ?? ""),
+  );
+  const nya = [];
+  const hoppade = [];
+  for (const plats of platser) (redanLoggad(plats) ? hoppade : nya).push(plats);
+  return { nya, hoppade };
+}
 // ---- slut näringspåminnelse
 
 function feedingTag(location, f) {
@@ -1273,17 +1300,82 @@ function renderFeedingReminder() {
 
   // onclick, inte addEventListener: renderAll() kör om det här vid varje
   // omladdning och lyssnarna skulle annars staplas på varandra.
-  const knapp = $("#reminder-log");
-  knapp.textContent = `Logga näring · ${lage[0].plats}`;
-  knapp.onclick = () => openFeedingDialog(lage[0].plats, null);
+  // Knappen går till flerplatsdialogen även när bara en plats är försenad –
+  // näring ges nästan alltid överallt samtidigt, och där syns alla platser.
+  $("#reminder-log").onclick = () => openFeedAllDialog();
 }
+
+function fyllFeedingNotesList() {
+  // Förslagen gör att samma preparat stavas likadant varje gång.
+  const namn = [...new Set(feedings.map((f) => f.notes).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "sv"));
+  $("#feeding-notes-list").replaceChildren(...namn.map((n) => el("option", { value: n })));
+}
+
+function openFeedAllDialog() {
+  const form = $("#feeding-all-form");
+  form.reset();
+  form.elements.fed_on.value = idagIso();
+  $("#feeding-all-msg").hidden = true;
+
+  const platser = placedLocations();
+  const rutor = $("#feeding-all-places");
+  rutor.replaceChildren(...platser.map((plats) => {
+    const rad = el("label", { className: "check-row" });
+    const box = el("input", { type: "checkbox", name: "plats", value: plats, checked: true });
+    rad.append(box, el("span", { textContent: plats }));
+    return rad;
+  }));
+
+  $("#feeding-all-dialog").showModal();
+}
+
+$("#feed-all-btn").addEventListener("click", () => openFeedAllDialog());
+
+$("#feeding-all-form").addEventListener("submit", async (e) => {
+  if (e.submitter?.value === "cancel") return;
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const datum = fd.get("fed_on");
+  const anteckning = trimmad(fd, "notes");
+  const valda = fd.getAll("plats");
+
+  const msg = $("#feeding-all-msg");
+  if (!valda.length) {
+    msg.textContent = "Kryssa i minst en plats.";
+    msg.hidden = false;
+    return;
+  }
+
+  const { nya, hoppade } = nyaNaringsrader(valda, datum, anteckning, feedings);
+  if (!nya.length) {
+    msg.textContent = "Allt det här är redan loggat på det datumet.";
+    msg.hidden = false;
+    return;
+  }
+
+  const { error } = await sb.from("feedings").insert(nya.map((plats) => ({
+    user_id: currentUser.id,
+    season,
+    location: plats,
+    fed_on: datum,
+    notes: anteckning,
+  })));
+  if (error) return alert(error.message);
+
+  $("#feeding-all-dialog").close();
+  await loadAll();
+  if (hoppade.length) {
+    alert(`Sparat för ${nya.length} platser. ${hoppade.join(", ")} var redan loggade på det datumet.`);
+  }
+});
 function openFeedingDialog(location, f) {
   const form = $("#feeding-form");
   form.reset();
   $("#feeding-dialog-title").textContent = (f ? "Redigera näring · " : "Ny näring · ") + location;
   $("#feeding-delete").hidden = !f;
   form.elements.location.value = location;
-  form.elements.fed_on.value = f?.fed_on || new Date().toISOString().slice(0, 10);
+  form.elements.fed_on.value = f?.fed_on || idagIso();
   if (f) {
     form.elements.id.value = f.id;
     form.elements.notes.value = f.notes || "";
@@ -1743,7 +1835,7 @@ function updateQuickHarvestSummary() {
 function openQuickHarvestDialog() {
   const form = $("#quick-harvest-form");
   form.reset();
-  form.elements.harvested_at.value = new Date().toISOString().slice(0, 10);
+  form.elements.harvested_at.value = idagIso();
 
   const list = $("#quick-harvest-rows");
   list.replaceChildren();
@@ -1780,7 +1872,7 @@ function openHarvestDialog(h) {
   const form = $("#harvest-form");
   form.reset();
   $("#harvest-delete").hidden = !h;
-  form.elements.harvested_at.value = h?.harvested_at || new Date().toISOString().slice(0, 10);
+  form.elements.harvested_at.value = h?.harvested_at || idagIso();
   if (h) {
     form.elements.id.value = h.id;
     form.elements.variety_id.value = h.variety_id || "";

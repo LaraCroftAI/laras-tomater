@@ -701,7 +701,25 @@ button:disabled {
   width: 1.1rem;
   height: 1.1rem;
   margin-top: 0.15rem;
+  /* Utan detta blir kryssen webbläsarens knallblå, mitt i en i övrigt varm palett. */
+  accent-color: var(--accent);
 }
+/* Platsvalet i "Näring för flera platser". Fieldset har egna webbläsarmarginaler
+   som annars gör rutan bredare än de andra fälten i dialogen. */
+.places-picker {
+  margin: 0;
+  padding: 0.7rem 0.9rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+}
+.places-picker legend {
+  padding: 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.places-picker .check-row + .check-row { margin-top: 0.5rem; }
+
 /* "Privat"-märket på ett eget odelat recept, ovanpå omslagsbilden */
 .recipe-card { position: relative; }
 .recipe-card .recipe-privat {

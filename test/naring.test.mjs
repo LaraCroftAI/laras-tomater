@@ -14,6 +14,11 @@
 //
 // Kör med:  node test/naring.test.mjs
 
+// Tidszonen pinnas innan något Date-objekt skapas. Utan det kör CI i UTC, och
+// då blir lokal tid och UTC samma sak – testet som ska fånga UTC-buggen kan
+// inte se skillnaden och lyser grönt på trasig kod.
+process.env.TZ = "Europe/Stockholm";
+
 import { readFileSync } from "node:fs";
 
 const MARKOR_START = "// ---- Näringspåminnelse";
@@ -27,7 +32,8 @@ if (start === -1 || slut === -1) {
   process.exit(1);
 }
 const kalla = app.slice(start, slut)
-  + "\nexport { dagarSedan, naringsLage, NARING_PAMINN_DAGAR, NARING_SENT_DAGAR };";
+  + "\nexport { dagarSedan, naringsLage, idagIso, nyaNaringsrader,"
+  + " NARING_PAMINN_DAGAR, NARING_SENT_DAGAR };";
 const M = await import("data:text/javascript," + encodeURIComponent(kalla));
 
 let fails = 0;
@@ -95,6 +101,64 @@ check("gammal rad drar inte upp en nyss gödslad plats",
 console.log("\n--- Trösklarna är de dokumenterade ---");
 check("påminnelsetröskel", M.NARING_PAMINN_DAGAR, 7);
 check("förseningströskel", M.NARING_SENT_DAGAR, 14);
+
+// Datumet ska följa klockan i växthuset, inte i Greenwich. Sverige ligger på
+// UTC+2 på sommaren, så mellan midnatt och klockan två är UTC fortfarande kvar
+// på gårdagens datum. Loggar man näring sent en kväll som råkar bli efter tolv
+// hamnar den alltså på fel dag med toISOString().
+console.log("\n--- Dagens datum räknas lokalt ---");
+
+// Går pinningen inte igenom är resten av avsnittet meningslöst – då mäter vi
+// UTC mot UTC. Bättre att säga det rakt ut än att lysa grönt.
+const sommaroffset = -new Date(2026, 7, 31, 0, 5).getTimezoneOffset();
+if (sommaroffset !== 120) {
+  fails++;
+  console.log(`FEL  tidszonen kunde inte pinnas till Europe/Stockholm`
+    + `\n     fick offset ${sommaroffset} min, ville ha 120`);
+}
+
+check("mitt på dagen", M.idagIso(new Date(2026, 7, 30, 12, 0)), "2026-08-30");
+// Det här är fallet som skiljer lokal räkning från UTC: 00:05 svensk sommartid
+// är 22:05 UTC dagen innan.
+check("fem över midnatt ger det nya dygnet, inte gårdagens",
+  M.idagIso(new Date(2026, 7, 31, 0, 5)), "2026-08-31");
+check("strax innan midnatt ger fortfarande det gamla dygnet",
+  M.idagIso(new Date(2026, 7, 30, 23, 45)), "2026-08-30");
+check("ensiffrig månad och dag nollfylls",
+  M.idagIso(new Date(2026, 0, 5, 9, 0)), "2026-01-05");
+
+console.log("\n--- Flera platser på en gång: inga dubbletter ---");
+const loggat = [
+  rad("Friland", "2026-08-29"), rad("Kruka", "2026-08-29"),
+  rad("Planteringslåda", "2026-08-29"), rad("Växthus", "2026-08-29"),
+].map((r) => ({ ...r, notes: "Rhizoferm" }));
+
+check("allt redan loggat → ingenting nytt",
+  M.nyaNaringsrader(platser, "2026-08-29", "Rhizoferm", loggat),
+  { nya: [], hoppade: platser });
+
+check("nytt datum → alla fyra sparas",
+  M.nyaNaringsrader(platser, "2026-09-05", "Rhizoferm", loggat),
+  { nya: platser, hoppade: [] });
+
+// 11 augusti 2026 fick alla fyra platser både Rhizoferm och flytande
+// tomatnäring. Samma dag med ett annat preparat måste alltså gå att spara.
+check("samma dag men annat preparat är giltigt",
+  M.nyaNaringsrader(platser, "2026-08-29", "Flytande tomatnäring", loggat),
+  { nya: platser, hoppade: [] });
+
+check("delvis loggat → bara resten sparas",
+  M.nyaNaringsrader(platser, "2026-08-29", "Rhizoferm", loggat.slice(0, 2)),
+  { nya: ["Planteringslåda", "Växthus"], hoppade: ["Friland", "Kruka"] });
+
+check("tom anteckning krockar inte med en befintlig med text",
+  M.nyaNaringsrader(["Växthus"], "2026-08-29", null, loggat),
+  { nya: ["Växthus"], hoppade: [] });
+
+check("två tomma anteckningar räknas som samma",
+  M.nyaNaringsrader(["Växthus"], "2026-08-29", null,
+    [{ location: "Växthus", fed_on: "2026-08-29", notes: null }]),
+  { nya: [], hoppade: ["Växthus"] });
 
 console.log(fails === 0 ? "\nALLA TESTER OK" : `\n${fails} FEL`);
 process.exit(fails === 0 ? 0 : 1);
