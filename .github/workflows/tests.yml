@@ -35,6 +35,9 @@ jobs:
       - name: Vecka och månad
         run: node test/vecka.test.mjs
 
+      - name: Fritext
+        run: node test/fritext.test.mjs
+
       # REQUIRE_BROWSER gör att jobbet failar om ingen webbläsare hittas, i stället
       # för att testet hoppar över sig självt och lyser grönt utan att ha kört.
       - name: Dialoger i webbläsare

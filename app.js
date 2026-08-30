@@ -30,6 +30,14 @@ const el = (tag, props = {}, ...children) => {
   return node;
 };
 
+// ---- Fritext från formulär
+// Fritext ska aldrig bära med sig inledande eller avslutande blanksteg. Utan
+// det här blev "Rhizoferm" och "Rhizoferm " två skilda poster i
+// näringshistoriken, trots att det är samma preparat. Ett fält som bara
+// innehåller blanksteg ska bli null, inte en tom sträng.
+const trimmad = (fd, key) => (fd.get(key) || "").trim() || null;
+// ---- slut fritext
+
 let currentUser = null;
 let season = INNEVARANDE_AR;   // vald säsong
 let seasons = [];              // säsonger som har data, nyast först
@@ -797,7 +805,7 @@ $("#variety-form").addEventListener("submit", async (e) => {
   }
   const useTags = (fd.get("use_tags") || "").split(",").map((s) => s.trim()).filter(Boolean);
   const row = {
-    name: fd.get("name"),
+    name: (fd.get("name") || "").trim(),
     category: fd.get("category") || null,
     growth_type: fd.get("growth_type") || null,
     height_min_cm: fd.get("height_min_cm") ? Number(fd.get("height_min_cm")) : null,
@@ -805,9 +813,9 @@ $("#variety-form").addEventListener("submit", async (e) => {
     pruning: fd.get("pruning") || null,
     default_location: fd.get("default_location") || null,
     use_tags: useTags,
-    flavor: fd.get("flavor") || null,
-    pruning_notes: fd.get("pruning_notes") || null,
-    notes: fd.get("notes") || null,
+    flavor: trimmad(fd, "flavor"),
+    pruning_notes: trimmad(fd, "pruning_notes"),
+    notes: trimmad(fd, "notes"),
   };
   let error;
   if (id) {
@@ -1115,7 +1123,7 @@ $("#planting-form").addEventListener("submit", async (e) => {
     plant_count: Number(fd.get("plant_count")) || 1,
     planted_date: fd.get("planted_date") || null,
     pruned_on: fd.get("pruned_on") || null,
-    notes: fd.get("notes") || null,
+    notes: trimmad(fd, "notes"),
     season,
   };
   let error;
@@ -1233,7 +1241,7 @@ $("#feeding-form").addEventListener("submit", async (e) => {
   const row = {
     location: fd.get("location"),
     fed_on: fd.get("fed_on"),
-    notes: fd.get("notes") || null,
+    notes: trimmad(fd, "notes"),
     season,
   };
   let error;
@@ -1733,7 +1741,7 @@ $("#harvest-form").addEventListener("submit", async (e) => {
     variety_id: fd.get("variety_id") || null,
     harvested_at: fd.get("harvested_at"),
     weight_g: fd.get("weight_g") ? Number(fd.get("weight_g")) : null,
-    notes: fd.get("notes") || null,
+    notes: trimmad(fd, "notes"),
   };
   let error;
   if (id) {
@@ -2147,8 +2155,8 @@ $("#recipe-edit-form").addEventListener("submit", async (e) => {
   const valdaSorter = [...$$("#recipe-variety-picker input:checked")].map((b) => b.value);
   const fritext = (fd.get("extra_varieties") || "").split(",").map((s) => s.trim()).filter(Boolean);
   const rad = {
-    name: fd.get("name"),
-    body: fd.get("body") || null,
+    name: (fd.get("name") || "").trim(),
+    body: trimmad(fd, "body"),
     variety_ids: valdaSorter,
     extra_varieties: fritext,
     is_shared: fd.get("is_shared") === "on",
@@ -2300,7 +2308,7 @@ $("#gallery-form").addEventListener("submit", async (e) => {
     return;
   }
 
-  const { error } = await sb.from(tabell).update({ caption: fd.get("caption") || null }).eq("id", ph.id);
+  const { error } = await sb.from(tabell).update({ caption: trimmad(fd, "caption") }).eq("id", ph.id);
   if (error) return alert(error.message);
   $("#gallery-dialog").close();
   await laddaOm();
