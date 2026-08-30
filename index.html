@@ -97,6 +97,18 @@
     <button class="tab" data-tab="galleri">Galleri</button>
   </nav>
 
+  <!-- Näringspåminnelsen ligger utanför flikarna med flit: skörden loggas
+       dagligen under Skörd, och en påminnelse som bara syntes under Odling
+       skulle missas av just den som behöver den. Dold när ingen plats är
+       försenad, och alltid dold för gamla säsonger. -->
+  <aside id="feeding-reminder" class="reminder" hidden>
+    <div class="reminder-body">
+      <p class="reminder-title" id="reminder-title"></p>
+      <ul class="reminder-places" id="reminder-places"></ul>
+    </div>
+    <button type="button" class="primary" id="reminder-log">Logga näring</button>
+  </aside>
+
   <section id="tab-sorter" class="tab-panel">
     <!-- Döljs när biblioteket är tomt: sex nollor skulle annars trycka ner
          förklaringen under vikningen på mobilen. -->

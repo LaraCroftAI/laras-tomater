@@ -464,6 +464,57 @@ button:disabled {
   color: var(--accent);
 }
 .feeding-latest.overdue { color: var(--danger); }
+
+/* Näringspåminnelsen. Ligger mellan flikraden och innehållet och syns därför
+   oavsett vilken flik man står på. Beige = snart dags, rosa = för länge sedan;
+   färgen är aldrig ensam bärare, texten säger samma sak. */
+.reminder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: var(--beige);
+  color: var(--beige-ink);
+}
+.reminder.sent {
+  background: var(--pink);
+  border-left-color: var(--danger);
+  color: var(--pink-ink);
+}
+.reminder-body { min-width: 0; }
+.reminder-title {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.reminder-places {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 18px;
+  font-size: 0.9rem;
+}
+/* Punkten mellan plats och antal dagar behövs: utan den läser fyra platser på
+   rad ihop till en enda textmassa när de radbryts på mobilen. */
+.reminder-places li { display: flex; gap: 6px; }
+.reminder-place { font-weight: 600; }
+.reminder-place::after { content: " ·"; font-weight: 400; opacity: 0.55; }
+.reminder-days { opacity: 0.85; }
+.reminder-days.sent { font-weight: 600; opacity: 1; }
+/* Knappen får inte klämmas ihop till två tecken när platsnamnet är långt. */
+#reminder-log { flex: none; white-space: nowrap; }
+@media (max-width: 520px) {
+  .reminder { flex-direction: column; align-items: stretch; }
+  #reminder-log { width: 100%; }
+}
 /* Kortet är flex-kolumn, så knappen skulle annars sträcka sig över hela bredden */
 .feeding-more {
   align-self: flex-start;

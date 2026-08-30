@@ -629,6 +629,7 @@ function renderAll() {
   populatePlantingLocationFilter();
   renderPlantings();
   renderFeedings();
+  renderFeedingReminder();
   renderHarvests();
   renderRecipes();
   renderGallery();
@@ -1146,6 +1147,38 @@ function placedLocations() {
 // Hur många gödslingstillfällen som visas innan "Visa alla".
 const FEEDING_ANTAL = 5;
 
+// ---- Näringspåminnelse
+// Trösklarna är valda ur Laras egen logg 2026: i högsäsong ligger hon på 3–9
+// dagar mellan gödslingarna, men säsongen rymmer också glapp på 10, 14 och 28
+// dagar. Sju dagar betyder alltså "snart dags", fjorton "det har gått för
+// länge". Ändras de här ska test/naring.test.mjs följa med.
+const NARING_PAMINN_DAGAR = 7;
+const NARING_SENT_DAGAR = 14;
+
+// Hela dygn mellan ett datum och idag. Räknas på lokal midnatt i båda ändar,
+// annars ger klockslaget ett dygns fel åt endera hållet.
+function dagarSedan(isoDatum, idag = new Date()) {
+  const d = new Date(isoDatum + "T00:00:00");
+  const noll = new Date(idag.getFullYear(), idag.getMonth(), idag.getDate());
+  return Math.round((noll - d) / 86400000);
+}
+
+// Platser som behöver näring, mest försenad först. En plats utan plantor finns
+// inte med – den har ingenting att gödsla. dagar === null betyder att platsen
+// aldrig fått näring den här säsongen, vilket alltid räknas som försenat.
+function naringsLage(platser, rader, idag = new Date()) {
+  const lage = [];
+  for (const plats of platser) {
+    const senaste = rader.filter((f) => f.location === plats)[0];
+    const dagar = senaste ? dagarSedan(senaste.fed_on, idag) : null;
+    if (dagar !== null && dagar < NARING_PAMINN_DAGAR) continue;
+    lage.push({ plats, dagar, sent: dagar === null || dagar >= NARING_SENT_DAGAR });
+  }
+  const nyckel = (x) => (x.dagar === null ? Number.MAX_SAFE_INTEGER : x.dagar);
+  return lage.sort((a, b) => nyckel(b) - nyckel(a));
+}
+// ---- slut näringspåminnelse
+
 function feedingTag(location, f) {
   const label = new Date(f.fed_on).toLocaleDateString("sv-SE") + (f.notes ? ` · ${f.notes}` : "");
   const t = tag(label, "green");
@@ -1208,6 +1241,41 @@ function renderFeedings() {
   const locs = placedLocations();
   $("#feeding-empty").hidden = locs.length > 0;
   for (const loc of locs) list.append(feedingCard(loc));
+}
+
+function renderFeedingReminder() {
+  const ruta = $("#feeding-reminder");
+  // Bläddrar man tillbaka till ett gammalt odlingsår ska ingenting tjata –
+  // de plantorna är sedan länge urdragna.
+  const lage = season === INNEVARANDE_AR ? naringsLage(placedLocations(), feedings) : [];
+  ruta.hidden = lage.length === 0;
+  if (!lage.length) return;
+
+  const nagotSent = lage.some((l) => l.sent);
+  ruta.classList.toggle("sent", nagotSent);
+  $("#reminder-title").textContent = nagotSent
+    ? "Det var ett tag sedan du gav näring"
+    : "Snart dags att ge näring";
+
+  const lista = $("#reminder-places");
+  lista.replaceChildren();
+  for (const l of lage) {
+    lista.append(el(
+      "li",
+      {},
+      el("span", { className: "reminder-place", textContent: l.plats }),
+      el("span", {
+        className: `reminder-days${l.sent ? " sent" : ""}`,
+        textContent: l.dagar === null ? "aldrig i år" : `${l.dagar} dagar sedan`,
+      }),
+    ));
+  }
+
+  // onclick, inte addEventListener: renderAll() kör om det här vid varje
+  // omladdning och lyssnarna skulle annars staplas på varandra.
+  const knapp = $("#reminder-log");
+  knapp.textContent = `Logga näring · ${lage[0].plats}`;
+  knapp.onclick = () => openFeedingDialog(lage[0].plats, null);
 }
 function openFeedingDialog(location, f) {
   const form = $("#feeding-form");
