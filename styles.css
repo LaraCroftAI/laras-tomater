@@ -704,6 +704,27 @@ button:disabled {
   /* Utan detta blir kryssen webbläsarens knallblå, mitt i en i övrigt varm palett. */
   accent-color: var(--accent);
 }
+/* Erbjudandet om telefonnotiser. Lånar .reminder-ramen men i neutral beige –
+   det är en fråga, inte en varning, och ska inte se lika brådskande ut som en
+   försenad plats. */
+.push-prompt { border-left-color: var(--line-strong); }
+.push-prompt-text {
+  margin: 0;
+  font-size: 0.9rem;
+  max-width: 46ch;
+}
+.push-prompt-knappar {
+  display: flex;
+  gap: 0.5rem;
+  flex: none;
+  align-items: center;
+}
+@media (max-width: 520px) {
+  /* Knapparna delar bredden i stället för att den ena blir en smal remsa. */
+  .push-prompt-knappar { width: 100%; }
+  .push-prompt-knappar button { flex: 1; }
+}
+
 /* Raden för push-notiser under växtnäringskorten. */
 .push-rad {
   display: flex;

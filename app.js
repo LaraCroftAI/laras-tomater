@@ -1343,6 +1343,16 @@ function pushLaget({ stods, arIos, installerad, tillstand, prenumererad }) {
   };
 }
 
+// Ska erbjudandet om telefonnotiser visas högst upp? Bara till den som
+// faktiskt kan svara ja, och bara tills hon svarat. Ett erbjudande som ligger
+// kvar efter att man tackat nej är inte ett erbjudande, det är tjat.
+function visaPushPrompt({ stods, tillstand, prenumererad, avvisad }) {
+  if (!stods) return false;
+  if (tillstand === "denied") return false;
+  if (prenumererad) return false;
+  return !avvisad;
+}
+
 // Den publika VAPID-nyckeln är base64url; PushManager vill ha den som bytes.
 function nyckelTillBytes(base64url) {
   const pad = base64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -1381,21 +1391,53 @@ async function nuvarandePrenumeration() {
   return await swRegistrering.pushManager.getSubscription();
 }
 
+const PUSH_PROMPT_NYCKEL = "odlarnorden.push-erbjudande-avvisat";
+
 async function renderPushRad() {
   const status = $("#push-status");
   const knapp = $("#push-toggle");
+  const stods = pushStods();
+  const tillstand = stods ? Notification.permission : "default";
+  const prenumererad = Boolean(await nuvarandePrenumeration());
+
   const lage = pushLaget({
-    stods: pushStods(),
+    stods,
     arIos: arIosEnhet(),
     installerad: arInstallerad(),
-    tillstand: pushStods() ? Notification.permission : "default",
-    prenumererad: Boolean(await nuvarandePrenumeration()),
+    tillstand,
+    prenumererad,
   });
   status.textContent = lage.text;
   knapp.hidden = !lage.knapp;
   if (lage.knapp) knapp.textContent = lage.knapp;
+  // Den permanenta knappen var en grå spökknapp och missades. "Slå på" är ett
+  // erbjudande och ska synas; "Stäng av" är en åtgärd man redan letar efter.
+  knapp.classList.toggle("primary", lage.knapp === "Slå på");
+  knapp.classList.toggle("ghost", lage.knapp !== "Slå på");
   $("#push-test").hidden = !lage.test;
+
+  $("#push-prompt").hidden = !visaPushPrompt({
+    stods,
+    tillstand,
+    prenumererad,
+    avvisad: localStorage.getItem(PUSH_PROMPT_NYCKEL) === "1",
+  });
 }
+
+$("#push-prompt-ja").addEventListener("click", async () => {
+  const knapp = $("#push-prompt-ja");
+  knapp.disabled = true;
+  try {
+    await slaPaPush();
+  } finally {
+    knapp.disabled = false;
+  }
+});
+
+$("#push-prompt-nej").addEventListener("click", async () => {
+  localStorage.setItem(PUSH_PROMPT_NYCKEL, "1");
+  await renderPushRad();
+});
 
 $("#push-test").addEventListener("click", async () => {
   const knapp = $("#push-test");

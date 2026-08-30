@@ -109,6 +109,20 @@
     <button type="button" class="primary" id="reminder-log">Logga näring</button>
   </aside>
 
+  <!-- Erbjudandet om telefonnotiser. Ligger här uppe för att den permanenta
+       knappen längst ner under Växtnäring är för lätt att missa. Visas en gång
+       och försvinner för gott när man svarat - påslagen eller "inte nu". -->
+  <aside id="push-prompt" class="reminder push-prompt" hidden>
+    <div class="reminder-body">
+      <p class="reminder-title">Vill du bli påmind i telefonen?</p>
+      <p class="push-prompt-text">Du får en notis när en plats väntat en vecka på näring – även när appen är stängd.</p>
+    </div>
+    <span class="push-prompt-knappar">
+      <button type="button" class="ghost" id="push-prompt-nej">Inte nu</button>
+      <button type="button" class="primary" id="push-prompt-ja">Slå på notiser</button>
+    </span>
+  </aside>
+
   <section id="tab-sorter" class="tab-panel">
     <!-- Döljs när biblioteket är tomt: sex nollor skulle annars trycka ner
          förklaringen under vikningen på mobilen. -->

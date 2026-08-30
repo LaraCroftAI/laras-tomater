@@ -23,7 +23,8 @@ if (start === -1 || slut === -1) {
   console.log(`Hittade inte blocket mellan "${MARKOR_START}" och "${MARKOR_SLUT}" i app.js.`);
   process.exit(1);
 }
-const kalla = app.slice(start, slut) + "\nexport { pushLaget, nyckelTillBytes };";
+const kalla = app.slice(start, slut)
+  + "\nexport { pushLaget, visaPushPrompt, nyckelTillBytes };";
 const M = await import("data:text/javascript," + encodeURIComponent(kalla));
 
 let fails = 0;
@@ -89,6 +90,21 @@ for (const stods of [true, false]) {
   }
 }
 console.log("OK   48 kombinationer ger alla en läsbar text");
+
+console.log("\n--- Erbjudandet högst upp visas bara när det går att svara ja ---");
+const prompt = (over) => M.visaPushPrompt({
+  stods: true, tillstand: "default", prenumererad: false, avvisad: false, ...over,
+});
+check("ny användare får frågan", prompt(), true);
+check("redan påslaget frågar inte igen", prompt({ prenumererad: true }), false);
+check("avvisad frågar inte igen", prompt({ avvisad: true }), false);
+check("blockerat frågar inte", prompt({ tillstand: "denied" }), false);
+check("utan stöd frågar inte", prompt({ stods: false }), false);
+// Har man redan sagt ja i webbläsaren men inte prenumererar (t.ex. efter att
+// ha rensat webbplatsdata) ska frågan komma tillbaka - annars finns ingen väg
+// in igen utom den lilla knappen längst ner.
+check("godkänt men oprenumererad får frågan",
+  prompt({ tillstand: "granted", prenumererad: false }), true);
 
 console.log("\n--- Nyckeln avkodas till 65 bytes ---");
 // Den riktiga publika nyckeln ur push_config. En VAPID-nyckel är alltid en
